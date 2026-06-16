@@ -25,7 +25,6 @@ public final class KeepSmeltingConfig {
         public final ForgeConfigSpec.IntValue minDeltaThreshold;
         public final ForgeConfigSpec.EnumValue<DebugMode> debugMode;
         public final ForgeConfigSpec.EnumValue<TimeMode> timeMode;
-        public final ForgeConfigSpec.BooleanValue vanillaHopperIO;
 
         Common(ForgeConfigSpec.Builder builder) {
             builder.comment("KeepSmelting — offline furnace smelting").push("catchup");
@@ -44,10 +43,6 @@ public final class KeepSmeltingConfig {
             this.timeMode = builder
                 .comment("Time mode: REALTIME (wall clock, works while paused) or GAMETIME (MC ticks, only when game runs).")
                 .defineEnum("timeMode", TimeMode.REALTIME);
-            this.vanillaHopperIO = builder
-                .comment("Simulate hopper I/O during offline catchup for vanilla furnaces. " +
-                        "True = hoppers above/beside/below transfer items offline.")
-                .define("vanillaHopperIO", false);
             builder.pop();
         }
     }

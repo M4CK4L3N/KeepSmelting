@@ -44,9 +44,8 @@ import java.util.Optional;
  *   • produce finished items
  *   • update block state when fuel runs out
  * <p>
- * Optional hopper I/O (config vanillaHopperIO) pulls input/fuel from
- * adjacent containers and pushes output below, enabling offline hopper
- * furnace chains.
+ * Hopper I/O (always enabled) pulls input/fuel from adjacent containers
+ * and pushes output below, enabling offline hopper furnace chains.
  */
 @Mixin(AbstractFurnaceBlockEntity.class)
 public abstract class FurnaceTickMixin {
@@ -138,8 +137,6 @@ public abstract class FurnaceTickMixin {
 
         if (!acc.callIsLit()) return;
 
-        boolean hopperIO = KeepSmeltingConfig.COMMON.vanillaHopperIO.get();
-
         // snapshots for debug
         NonNullList<ItemStack> items = acc.getItems();
         int outputBefore = items.get(2).getCount();
@@ -149,7 +146,7 @@ public abstract class FurnaceTickMixin {
         long remaining = deltaTime;
 
         // ── One-shot hopper I/O: push output, fill input, fill fuel ──
-        if (hopperIO) {
+        {
             // How many hopper operations fire during deltaTime (8 ticks per item)
             int hopperOps = Math.max(1, (int)(deltaTime / 8));
 
@@ -240,31 +237,26 @@ public abstract class FurnaceTickMixin {
         }
 
         // ── Final push: flush output to below ──
-        if (hopperIO && !acc.getItems().get(2).isEmpty()) {
+        if (!acc.getItems().get(2).isEmpty()) {
             pushToBelow(furnace, level, pos, Integer.MAX_VALUE);
         }
 
         // ── debug output — only when something actually happened ──
         if (KeepSmeltingConfig.COMMON.debugMode.get() != KeepSmeltingConfig.DebugMode.OFF) {
             items = acc.getItems();
-            int outputDelta = items.get(2).getCount() - outputBefore;
-            int fuelDelta = fuelBefore - items.get(1).getCount();
-            int progressDelta = acc.getCookingProgress() - progressBefore;
             boolean lit = acc.callIsLit();
+            int progressDelta = acc.getCookingProgress() - progressBefore;
 
-            if (outputDelta == 0 && fuelDelta == 0 && progressDelta == 0 && itemsProduced == 0) return;
+            if (progressDelta == 0 && itemsProduced == 0 && fuelBefore == items.get(1).getCount()) return;
 
-            String extra = "";
-            if (hopperIO && itemsProduced > 0) {
-                extra = String.format(" §7(§a%d§7 items)", itemsProduced);
-            }
+            int fuelUsed = fuelBefore - items.get(1).getCount();
+            String fuelStr = fuelUsed > 0 ? String.format("fuel: -%d", fuelUsed) : "fuel: 0";
+            String itemStr = itemsProduced > 0 ? String.format("smelted: §a%d", itemsProduced) : "smelted: 0";
+
             Component msg = Component.literal(
-                    String.format("§7[§6KeepSmelting§7] §f%s §7| §e%d§7t | §a+%ditem §c-%dfuel §7lit=%s%s",
+                    String.format("§7[§6KeepSmelting§7] §f%s §7| §e%d§7t§r | %s §7| %s §7| §7lit=%s",
                             pos.toShortString(), deltaTime,
-                            outputDelta,
-                            fuelDelta,
-                            lit,
-                            extra));
+                            itemStr, fuelStr, lit));
             if (KeepSmeltingConfig.COMMON.debugMode.get() == KeepSmeltingConfig.DebugMode.LOG) {
                 KeepSmelting.LOGGER.info(msg.getString());
             } else {
