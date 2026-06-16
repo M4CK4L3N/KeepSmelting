@@ -48,6 +48,9 @@ public abstract class IronFurnaceTickMixin {
     private boolean keepsmelting$catchupDone;
 
     @Unique
+    private boolean keepsmelting$ioGuard;
+
+    @Unique
     private String keepsmelting$activeTimeMode;
 
     @Unique
@@ -106,16 +109,35 @@ public abstract class IronFurnaceTickMixin {
         if (elapsed <= 0) return;
 
         if (tile.isFurnace()) {
-            applyFurnaceCatchup(tile, elapsed, level, pos);
+            if (self.keepsmelting$ioGuard) return;
+            self.keepsmelting$ioGuard = true;
+            try {
+                ((IronFurnaceAccessor) tile).invokeCheckRecipeType();
+                applyFurnaceCatchup(tile, elapsed, level, pos);
+            } finally {
+                self.keepsmelting$ioGuard = false;
+            }
         } else if (tile.isFactory()) {
-            applyFactoryCatchup(tile, elapsed, level, pos);
+            if (self.keepsmelting$ioGuard) return;
+            self.keepsmelting$ioGuard = true;
+            try {
+                ((IronFurnaceAccessor) tile).invokeCheckRecipeType();
+                applyFactoryCatchup(tile, elapsed, level, pos);
+            } finally {
+                self.keepsmelting$ioGuard = false;
+            }
         } else if (tile.isGenerator()) {
-            // Skip if already processed by a neighbor factory's catchup
             if (self.keepsmelting$catchupDone) {
                 self.keepsmelting$catchupDone = false;
                 return;
             }
-            applyGeneratorCatchup(tile, elapsed, level, pos);
+            if (self.keepsmelting$ioGuard) return;
+            self.keepsmelting$ioGuard = true;
+            try {
+                applyGeneratorCatchup(tile, elapsed, level, pos);
+            } finally {
+                self.keepsmelting$ioGuard = false;
+            }
         }
     }
 
@@ -130,13 +152,8 @@ public abstract class IronFurnaceTickMixin {
 
         int cookTimeBefore = tile.cookTime;
         int burnTimeBefore = tile.furnaceBurnTime;
-        int outputBefore = tile.inventory.get(2).getCount();
         int fuelBefore = tile.inventory.get(1).getCount();
 
-        ItemStack input = tile.inventory.get(0);
-        if (input.isEmpty()) return;
-
-        int inputCount = input.getCount();
         int maxStack = tile.getMaxStackSize();
         long remaining = elapsed;
         int cookTime = tile.cookTime;
@@ -144,8 +161,26 @@ public abstract class IronFurnaceTickMixin {
         int totalCookTime = tile.totalCookTime;
         ItemStack fuel = tile.inventory.get(1);
         ItemStack output = tile.inventory.get(2);
+        ItemStack input = tile.inventory.get(0);
 
-        while (remaining > 0 && burnTime > 0 && !input.isEmpty()) {
+        IronFurnaceAccessor acc = (IronFurnaceAccessor) tile;
+
+        // Counter — survives autoIO flushes unlike output slot diff
+        long totalItems = 0;
+
+        while (remaining > 0 && burnTime > 0) {
+            // If input empty → try autoIO to pull from chest
+            if (input.isEmpty()) {
+                tile.furnaceBurnTime = Math.max(0, burnTime);
+                tile.cookTime = Math.max(0, cookTime);
+                tile.setChanged();
+                acc.invokeAutoIO();
+                input = tile.inventory.get(0);
+                KeepSmelting.LOGGER.info("[Furnace IO] input empty → autoIO, got={}", input.getCount());
+                if (input.isEmpty()) break;
+            }
+            int inputCount = input.getCount();
+
             long applyTick = Math.min(remaining, Math.min(burnTime,
                     totalCookTime - cookTime + (long) (inputCount - 1) * totalCookTime));
             cookTime += (int) applyTick;
@@ -154,11 +189,21 @@ public abstract class IronFurnaceTickMixin {
 
             while (cookTime >= totalCookTime && !input.isEmpty()) {
                 cookTime -= totalCookTime;
-                if (!output.isEmpty() && output.getCount() >= maxStack) break;
+
+                // Output full → try autoIO to flush to chest
+                if (!output.isEmpty() && output.getCount() >= maxStack) {
+                    tile.furnaceBurnTime = Math.max(0, burnTime);
+                    tile.cookTime = Math.max(0, cookTime);
+                    tile.setChanged();
+                    acc.invokeAutoIO();
+                    output = tile.inventory.get(2);
+                    KeepSmelting.LOGGER.info("[Furnace IO] output full → autoIO, now={}", output.getCount());
+                    if (!output.isEmpty() && output.getCount() >= maxStack) break; // chest full too
+                }
+
                 input.shrink(1);
                 inputCount--;
 
-                IronFurnaceAccessor acc = (IronFurnaceAccessor) tile;
                 Optional<?> recipeOpt = acc.invokeGetRecipe(
                         input.isEmpty() ? ItemStack.EMPTY : input);
                 if (recipeOpt.isPresent()) {
@@ -171,20 +216,32 @@ public abstract class IronFurnaceTickMixin {
                         output.grow(result.getCount());
                     }
                 }
+                totalItems++;
                 if (input.getCount() <= 0) {
                     tile.inventory.set(0, ItemStack.EMPTY);
                     input = ItemStack.EMPTY;
                 }
             }
 
-            if (burnTime <= 0 && remaining > 0 && !fuel.isEmpty()) {
-                int fb = ForgeHooks.getBurnTime(fuel, RecipeType.SMELTING);
-                if (fb > 0) {
-                    burnTime = fb;
-                    fuel.shrink(1);
-                    if (fuel.getCount() <= 0) {
-                        tile.inventory.set(1, fuel.getCraftingRemainingItem());
-                    }
+            if (burnTime <= 0 && remaining > 0) {
+                // If fuel empty → try autoIO to pull fuel from chest
+                if (fuel.isEmpty()) {
+                    tile.furnaceBurnTime = 0;
+                    tile.cookTime = cookTime;
+                    tile.setChanged();
+                    acc.invokeAutoIO();
+                    fuel = tile.inventory.get(1);
+                    KeepSmelting.LOGGER.info("[Furnace IO] fuel empty → autoIO, got={}", fuel.getCount());
+                }
+                if (!fuel.isEmpty()) {
+                    int fb = ForgeHooks.getBurnTime(fuel, RecipeType.SMELTING);
+                    if (fb > 0) {
+                        burnTime = fb;
+                        fuel.shrink(1);
+                        if (fuel.getCount() <= 0) {
+                            tile.inventory.set(1, fuel.getCraftingRemainingItem());
+                        }
+                    } else break;
                 } else break;
             }
         }
@@ -194,7 +251,7 @@ public abstract class IronFurnaceTickMixin {
 
         sendChatDebug(level, pos, "Furnace", elapsed,
                 fuelBefore - tile.inventory.get(1).getCount(),
-                tile.inventory.get(2).getCount() - outputBefore,
+                (int) totalItems,
                 tile.cookTime - cookTimeBefore,
                 burnTimeBefore - tile.furnaceBurnTime,
                 tile.furnaceBurnTime > 0);
@@ -235,11 +292,26 @@ public abstract class IronFurnaceTickMixin {
             for (int i = 0; i < 6; i++) {
                 int slot = FACTORY_INPUT[i];
                 ItemStack input = tile.inventory.get(slot);
-                if (input.isEmpty()) continue;
 
                 int outputSlot = slot + 6;
                 ItemStack output = tile.inventory.get(outputSlot);
-                if (!output.isEmpty() && output.getCount() >= output.getMaxStackSize()) continue;
+
+                // Output full → flush to chest
+                if (!output.isEmpty() && output.getCount() >= output.getMaxStackSize()) {
+                    tile.setChanged();
+                    acc.invokeAutoFactoryIO();
+                    output = tile.inventory.get(outputSlot);
+                    KeepSmelting.LOGGER.info("[Factory IO] slot{} output full → autoFactoryIO, now={}", i, output.getCount());
+                    if (!output.isEmpty() && output.getCount() >= output.getMaxStackSize()) continue;
+                }
+
+                if (input.isEmpty()) {
+                    tile.setChanged();
+                    acc.invokeAutoFactoryIO();
+                    input = tile.inventory.get(slot);
+                    KeepSmelting.LOGGER.info("[Factory IO] slot{} input empty → autoFactoryIO, got={}", i, input.getCount());
+                    if (input.isEmpty()) continue;
+                }
 
                 int totalCookTime = acc.invokeGetFactoryCookTime(slot);
                 if (totalCookTime <= 0) continue;
@@ -338,7 +410,12 @@ public abstract class IronFurnaceTickMixin {
 
             if (tile.generatorBurn <= 0.0) {
                 ItemStack fuel = tile.inventory.get(6);
-                if (fuel.isEmpty()) break;
+                if (fuel.isEmpty()) {
+                    acc.invokeAutoIOGenerator();
+                    fuel = tile.inventory.get(6);
+                    KeepSmelting.LOGGER.info("[Generator IO] fuel empty → autoIOGenerator, got={}", fuel.getCount());
+                    if (fuel.isEmpty()) break;
+                }
 
                 tile.generatorBurn = tile.getGeneratorBurn();
                 tile.generatorRecentRecipeRF = (int) tile.generatorBurn;
@@ -493,9 +570,9 @@ public abstract class IronFurnaceTickMixin {
                             outputDelta, fuelDelta, lit));
         } else {
             msg = Component.literal(
-                    String.format("§7[§6KeepSmelting§7] §e[%s] §f%s §7| §e%d§7t | §a+%ditem §c-%dfuel §d-%dRF §7lit=%s",
+                    String.format("§7[§6KeepSmelting§7] §e[%s] §f%s §7| §e%d§7t | §a+%ditem §c-%dfuel §d-%dBt §7lit=%s",
                             mode, pos.toShortString(), elapsed,
-                            outputDelta, fuelDelta, burnDelta, lit));
+                            outputDelta, fuelDelta, Math.abs(burnDelta), lit));
         }
 
         if (dm == KeepSmeltingConfig.DebugMode.CHAT) {

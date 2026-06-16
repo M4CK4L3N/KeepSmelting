@@ -44,10 +44,16 @@ public interface IronFurnaceAccessor {
     @Invoker(value = "getFactoryCookTime", remap = false)
     int invokeGetFactoryCookTime(int slot);
 
-    // ── Generator ──
+    // ── AutoIO ──
+
+    @Invoker(value = "autoIO", remap = false)
+    void invokeAutoIO();
 
     @Invoker(value = "autoIOGenerator", remap = false)
     void invokeAutoIOGenerator();
+
+    @Invoker(value = "autoFactoryIO", remap = false)
+    void invokeAutoFactoryIO();
 
     @Invoker(value = "energyOut", remap = false)
     void invokeEnergyOut();
