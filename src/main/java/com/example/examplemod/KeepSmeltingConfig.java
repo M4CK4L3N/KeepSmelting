@@ -5,7 +5,7 @@ import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 import org.apache.commons.lang3.tuple.Pair;
 
-public final class TimeFurnaceConfig {
+public final class KeepSmeltingConfig {
     public static final Common COMMON;
     public static final ForgeConfigSpec COMMON_SPEC;
 
@@ -26,7 +26,7 @@ public final class TimeFurnaceConfig {
         public final ForgeConfigSpec.BooleanValue chatDebug;
 
         Common(ForgeConfigSpec.Builder builder) {
-            builder.comment("TimeFurnace — offline furnace smelting").push("catchup");
+            builder.comment("KeepSmelting — offline furnace smelting").push("catchup");
             this.catchupEnabled = builder
                 .comment("Master toggle. False = vanilla smelting only.")
                 .define("catchupEnabled", true);

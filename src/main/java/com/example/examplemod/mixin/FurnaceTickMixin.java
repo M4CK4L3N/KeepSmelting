@@ -1,6 +1,6 @@
 package com.example.examplemod.mixin;
 
-import com.example.examplemod.TimeFurnaceConfig;
+import com.example.examplemod.KeepSmeltingConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.network.chat.Component;
@@ -42,14 +42,14 @@ import java.util.Optional;
 public abstract class FurnaceTickMixin {
 
     @Unique
-    private static final String LAST_REAL_TIME_TAG = "timefurnace_lastRealTime";
+    private static final String LAST_REAL_TIME_TAG = "keepsmelting_lastRealTime";
     @Unique
-    private static final String NBT_VERSION_TAG = "timefurnace_version";
+    private static final String NBT_VERSION_TAG = "keepsmelting_version";
     @Unique
     private static final int CURRENT_NBT_VERSION = 1;
 
     @Unique
-    private long timefurnace$lastRealTime;
+    private long keepsmelting$lastRealTime;
 
     // ──────────────────────────────────────────────
     //  NBT save / load
@@ -58,12 +58,12 @@ public abstract class FurnaceTickMixin {
     @Inject(method = "saveAdditional", at = @At("TAIL"))
     private void onSave(net.minecraft.nbt.CompoundTag tag, CallbackInfo ci) {
         tag.putInt(NBT_VERSION_TAG, CURRENT_NBT_VERSION);
-        tag.putLong(LAST_REAL_TIME_TAG, this.timefurnace$lastRealTime);
+        tag.putLong(LAST_REAL_TIME_TAG, this.keepsmelting$lastRealTime);
     }
 
     @Inject(method = "load", at = @At("TAIL"))
     private void onLoad(net.minecraft.nbt.CompoundTag tag, CallbackInfo ci) {
-        this.timefurnace$lastRealTime = tag.getLong(LAST_REAL_TIME_TAG);
+        this.keepsmelting$lastRealTime = tag.getLong(LAST_REAL_TIME_TAG);
     }
 
     // ──────────────────────────────────────────────
@@ -75,23 +75,23 @@ public abstract class FurnaceTickMixin {
                                AbstractFurnaceBlockEntity blockEntity, CallbackInfo ci) {
         if (world.isClientSide) return;
 
-        if (!TimeFurnaceConfig.COMMON.catchupEnabled.get()) return;
+        if (!KeepSmeltingConfig.COMMON.catchupEnabled.get()) return;
 
         FurnaceTickMixin self = (FurnaceTickMixin) (Object) blockEntity;
 
         long now = System.currentTimeMillis();
-        long lastReal = self.timefurnace$lastRealTime;
-        self.timefurnace$lastRealTime = now;
+        long lastReal = self.keepsmelting$lastRealTime;
+        self.keepsmelting$lastRealTime = now;
 
         if (lastReal == 0) return;
 
         long elapsedMs = now - lastReal;
         long elapsedTicks = elapsedMs / 50L;
 
-        int minDelta = TimeFurnaceConfig.COMMON.minDeltaThreshold.get();
+        int minDelta = KeepSmeltingConfig.COMMON.minDeltaThreshold.get();
         if (elapsedTicks < minDelta) return;
 
-        long maxTicks = TimeFurnaceConfig.COMMON.maxCatchupTicks.get();
+        long maxTicks = KeepSmeltingConfig.COMMON.maxCatchupTicks.get();
         elapsedTicks = Math.min(elapsedTicks, maxTicks);
         if (elapsedTicks <= 0) return;
 
@@ -167,7 +167,7 @@ public abstract class FurnaceTickMixin {
         }
 
         // ── chat debug — read items fresh (callBurn may replace ItemStack refs) ──
-        if (TimeFurnaceConfig.COMMON.chatDebug.get()) {
+        if (KeepSmeltingConfig.COMMON.chatDebug.get()) {
             NonNullList<ItemStack> itemsAfter = acc.getItems();
             int outputAfter = itemsAfter.get(2).getCount();
             int fuelAfter = itemsAfter.get(1).getCount();
@@ -175,7 +175,7 @@ public abstract class FurnaceTickMixin {
             boolean lit = acc.callIsLit();
 
             Component msg = Component.literal(
-                    String.format("§7[§6TimeFurnace§7] §f%s §7| §e%d§7t elapsed | §c-%dfuel §a+%dout §b+%dprogress §7lit=%s",
+                    String.format("§7[§6KeepSmelting§7] §f%s §7| §e%d§7t elapsed | §c-%dfuel §a+%dout §b+%dprogress §7lit=%s",
                             pos.toShortString(), deltaTime,
                             fuelBefore - fuelAfter,
                             outputAfter - outputBefore,

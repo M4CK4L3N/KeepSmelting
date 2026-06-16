@@ -9,7 +9,9 @@
 			],
 			"alwaysAllow": [
 				"read_text_file",
-				"create_directory"
+				"create_directory",
+				"list_directory",
+				"list_allowed_directories"
 			]
 		}
 	}

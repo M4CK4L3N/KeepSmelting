@@ -1,6 +1,6 @@
 package com.example.examplemod;
 
-import com.example.examplemod.command.TimeFurnaceCommand;
+import com.example.examplemod.command.KeepSmeltingCommand;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -10,14 +10,14 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Mod(TimeFurnace.MOD_ID)
-public class TimeFurnace {
-    public static final String MOD_ID = "timefurnace";
-    public static final Logger LOGGER = LoggerFactory.getLogger("TimeFurnace");
+@Mod(KeepSmelting.MOD_ID)
+public class KeepSmelting {
+    public static final String MOD_ID = "keepsmelting";
+    public static final Logger LOGGER = LoggerFactory.getLogger("KeepSmelting");
 
     @SuppressWarnings("removal")
-    public TimeFurnace() {
-        TimeFurnaceConfig.register();
+    public KeepSmelting() {
+        KeepSmeltingConfig.register();
 
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         modBus.addListener(this::onCommonSetup);
@@ -27,11 +27,11 @@ public class TimeFurnace {
     }
 
     private void onCommonSetup(FMLCommonSetupEvent event) {
-        LOGGER.info("TimeFurnace initialized — offline smelting enabled");
+        LOGGER.info("KeepSmelting initialized — offline smelting enabled");
     }
 
     private void onRegisterCommands(RegisterCommandsEvent event) {
-        TimeFurnaceCommand.register(event.getDispatcher());
-        LOGGER.info("TimeFurnace commands registered");
+        KeepSmeltingCommand.register(event.getDispatcher());
+        LOGGER.info("KeepSmelting commands registered");
     }
 }
