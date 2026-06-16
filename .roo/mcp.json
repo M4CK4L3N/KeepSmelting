@@ -15,7 +15,8 @@
 				"directory_tree",
 				"move_file",
 				"search_files",
-				"edit_file"
+				"edit_file",
+				"read_file"
 			]
 		}
 	}
