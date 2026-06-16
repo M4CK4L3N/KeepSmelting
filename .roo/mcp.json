@@ -14,7 +14,8 @@
 				"list_allowed_directories",
 				"directory_tree",
 				"move_file",
-				"search_files"
+				"search_files",
+				"edit_file"
 			]
 		}
 	}
