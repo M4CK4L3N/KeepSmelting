@@ -3,6 +3,9 @@ package com.example.examplemod.command;
 import com.example.examplemod.KeepSmeltingConfig;
 import com.example.examplemod.KeepSmeltingConfig.DebugMode;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
@@ -25,6 +28,11 @@ public class KeepSmeltingCommand {
         dispatcher.register(Commands.literal("keepsmelting")
                 .requires(src -> src.hasPermission(2))
 
+                // /keepsmelting catchup <true|false>
+                .then(Commands.literal("catchup")
+                        .then(Commands.argument("value", BoolArgumentType.bool())
+                                .executes(ctx -> setCatchup(ctx, BoolArgumentType.getBool(ctx, "value")))))
+
                 // /keepsmelting debug <OFF|CHAT|LOG>
                 .then(Commands.literal("debug")
                         .then(Commands.argument("mode", StringArgumentType.word())
@@ -37,6 +45,16 @@ public class KeepSmeltingCommand {
                                 .suggests(TIME_SUGGESTIONS)
                                 .executes(ctx -> setTimeMode(ctx, StringArgumentType.getString(ctx, "mode")))))
 
+                // /keepsmelting maxTicks <1-192000>
+                .then(Commands.literal("maxTicks")
+                        .then(Commands.argument("value", LongArgumentType.longArg(1, 192000))
+                                .executes(ctx -> setMaxTicks(ctx, LongArgumentType.getLong(ctx, "value")))))
+
+                // /keepsmelting minDelta <1-72000>
+                .then(Commands.literal("minDelta")
+                        .then(Commands.argument("value", IntegerArgumentType.integer(1, 72000))
+                                .executes(ctx -> setMinDelta(ctx, IntegerArgumentType.getInteger(ctx, "value")))))
+
                 // /keepsmelting status
                 .then(Commands.literal("status")
                         .executes(KeepSmeltingCommand::showStatus))
@@ -44,6 +62,33 @@ public class KeepSmeltingCommand {
                 // /keepsmelting — show help
                 .executes(KeepSmeltingCommand::showHelp)
         );
+    }
+
+    private static int setCatchup(CommandContext<CommandSourceStack> ctx, boolean value) {
+        KeepSmeltingConfig.COMMON.catchupEnabled.set(value);
+        KeepSmeltingConfig.COMMON.catchupEnabled.save();
+        ctx.getSource().sendSuccess(() ->
+                Component.literal(String.format("§7[§6KeepSmelting§7] catchup §a→ §f%b", value)),
+                true);
+        return 1;
+    }
+
+    private static int setMaxTicks(CommandContext<CommandSourceStack> ctx, long value) {
+        KeepSmeltingConfig.COMMON.maxCatchupTicks.set(value);
+        KeepSmeltingConfig.COMMON.maxCatchupTicks.save();
+        ctx.getSource().sendSuccess(() ->
+                Component.literal(String.format("§7[§6KeepSmelting§7] maxTicks §a→ §f%d", value)),
+                true);
+        return 1;
+    }
+
+    private static int setMinDelta(CommandContext<CommandSourceStack> ctx, int value) {
+        KeepSmeltingConfig.COMMON.minDeltaThreshold.set(value);
+        KeepSmeltingConfig.COMMON.minDeltaThreshold.save();
+        ctx.getSource().sendSuccess(() ->
+                Component.literal(String.format("§7[§6KeepSmelting§7] minDelta §a→ §f%d", value)),
+                true);
+        return 1;
     }
 
     private static int setDebugMode(CommandContext<CommandSourceStack> ctx, String mode) {
@@ -102,10 +147,19 @@ public class KeepSmeltingCommand {
                 Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting status §7— show settings"),
                 false);
         ctx.getSource().sendSuccess(() ->
-                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting debug <OFF|CHAT|LOG> §7— set debug output mode"),
+                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting catchup <true|false> §7— toggle catchup"),
                 false);
         ctx.getSource().sendSuccess(() ->
-                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting time <REALTIME|GAMETIME> §7— set time tracking mode"),
+                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting maxTicks <1-192000> §7— max offline ticks"),
+                false);
+        ctx.getSource().sendSuccess(() ->
+                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting minDelta <1-72000> §7— min tick gap to trigger"),
+                false);
+        ctx.getSource().sendSuccess(() ->
+                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting debug <OFF|CHAT|LOG> §7— debug output mode"),
+                false);
+        ctx.getSource().sendSuccess(() ->
+                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting time <REALTIME|GAMETIME> §7— time tracking mode"),
                 false);
         return 1;
     }
