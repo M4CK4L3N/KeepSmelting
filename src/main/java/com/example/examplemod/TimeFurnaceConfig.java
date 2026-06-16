@@ -23,6 +23,7 @@ public final class TimeFurnaceConfig {
         public final ForgeConfigSpec.BooleanValue catchupEnabled;
         public final ForgeConfigSpec.LongValue maxCatchupTicks;
         public final ForgeConfigSpec.IntValue minDeltaThreshold;
+        public final ForgeConfigSpec.BooleanValue chatDebug;
 
         Common(ForgeConfigSpec.Builder builder) {
             builder.comment("TimeFurnace — offline furnace smelting").push("catchup");
@@ -35,6 +36,9 @@ public final class TimeFurnaceConfig {
             this.minDeltaThreshold = builder
                 .comment("Min tick gap before catchup fires. Default: 20 (1 sec). Below this = vanilla tick.")
                 .defineInRange("minDeltaThreshold", 20, 1, 72000);
+            this.chatDebug = builder
+                .comment("Print catchup results to chat of nearby players. Useful for debugging.")
+                .define("chatDebug", true);
             builder.pop();
         }
     }
