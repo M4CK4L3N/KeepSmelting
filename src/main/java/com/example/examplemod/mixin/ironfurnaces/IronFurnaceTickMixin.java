@@ -382,13 +382,12 @@ public abstract class IronFurnaceTickMixin {
                 if (tile.inventory.get(FACTORY_INPUT[i]).isEmpty()) continue;
                 if (tile.factoryCookTime[i] > 0 || cookBefore[i] > 0) itemsStarted++;
             }
+            String itemStr = finalOutput > 0 ? String.format("smelted: §a%d", finalOutput) : "smelted: 0";
+            String rfStr = String.format("rf: -%d (pull=%d, %dRF/item)", rfConsumed, pulledRf, rfPerItem);
             Component msg = Component.literal(
-                    String.format("§7[§6KeepSmelting§7] §e[Factory] §f%s §7| §e%d§7t | §a+%ditem §d-%dRF §7(%dRF/item) §7pulled=%dRF",
+                    String.format("§7[§6KeepSmelting§7] §e[Factory] §f%s §7| §e%d§7t§r | %s §7| %s",
                             pos.toShortString(), elapsed,
-                            finalOutput,
-                            rfConsumed,
-                            rfPerItem,
-                            pulledRf));
+                            itemStr, rfStr));
             sendToNearbyPlayers((ServerLevel) level, pos, msg);
         }
     }
@@ -564,15 +563,19 @@ public abstract class IronFurnaceTickMixin {
 
         Component msg;
         if ("Generator".equals(mode)) {
+            String rfStr = outputDelta > 0 ? String.format("rf: §a+%d", outputDelta) : "rf: 0";
+            String fuelStr = fuelDelta > 0 ? String.format("fuel: -%d", fuelDelta) : "fuel: 0";
             msg = Component.literal(
-                    String.format("§7[§6KeepSmelting§7] §e[Generator] §f%s §7| §e%d§7t | §a+%dRF §c-%dfuel §7lit=%s",
+                    String.format("§7[§6KeepSmelting§7] §e[Generator] §f%s §7| §e%d§7t§r | %s §7| %s §7| §7lit=%s",
                             pos.toShortString(), elapsed,
-                            outputDelta, fuelDelta, lit));
+                            rfStr, fuelStr, lit));
         } else {
+            String itemStr = outputDelta > 0 ? String.format("smelted: §a%d", outputDelta) : "smelted: 0";
+            String fuelStr = fuelDelta > 0 ? String.format("fuel: -%d", fuelDelta) : "fuel: 0";
             msg = Component.literal(
-                    String.format("§7[§6KeepSmelting§7] §e[%s] §f%s §7| §e%d§7t | §a+%ditem §c-%dfuel §d-%dBt §7lit=%s",
+                    String.format("§7[§6KeepSmelting§7] §e[%s] §f%s §7| §e%d§7t§r | %s §7| %s §7| §7lit=%s",
                             mode, pos.toShortString(), elapsed,
-                            outputDelta, fuelDelta, Math.abs(burnDelta), lit));
+                            itemStr, fuelStr, lit));
         }
 
         if (dm == KeepSmeltingConfig.DebugMode.CHAT) {
