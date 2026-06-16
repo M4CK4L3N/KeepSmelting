@@ -3,6 +3,7 @@ package com.example.examplemod.mixin.ironfurnaces;
 import com.example.examplemod.KeepSmeltingConfig;
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -11,6 +12,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.ForgeHooks;
@@ -27,7 +29,9 @@ import java.util.Optional;
 /**
  * Catchup mixin for Iron Furnaces BlockIronFurnaceTileBase.
  * Supports 3 modes: furnace, factory, generator.
- * Uses targets string + Pseudo — safe when ironfurnaces absent.
+ * Factory triggers neighbor generator catchup BEFORE pulling RF,
+ * so offline-generated RF is available.
+ * Uses targets string + Pseudo -- safe when ironfurnaces absent.
  */
 @Pseudo
 @Mixin(targets = "ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase")
@@ -38,6 +42,9 @@ public abstract class IronFurnaceTickMixin {
 
     @Unique
     private long keepsmelting$lastRealTime;
+
+    @Unique
+    private boolean keepsmelting$catchupDone;
 
     @Unique
     private static final int[] FACTORY_INPUT = new int[]{7, 8, 9, 10, 11, 12};
@@ -76,6 +83,11 @@ public abstract class IronFurnaceTickMixin {
         } else if (tile.isFactory()) {
             applyFactoryCatchup(tile, elapsed, level, pos);
         } else if (tile.isGenerator()) {
+            // Skip if already processed by a neighbor factory's catchup
+            if (self.keepsmelting$catchupDone) {
+                self.keepsmelting$catchupDone = false;
+                return;
+            }
             applyGeneratorCatchup(tile, elapsed, level, pos);
         }
     }
@@ -178,8 +190,18 @@ public abstract class IronFurnaceTickMixin {
             outputBefore[i] = tile.inventory.get(FACTORY_INPUT[i] + 6).getCount();
         }
 
+        // Step 0: Force generator catchup on neighbor generators FIRST
+        // so their offline-generated RF is available for factory to pull
+        processNeighborGenerators(tile, elapsed, level, pos);
+
+        // Step 1: pull ALL RF from neighbor generators (freshly generated)
+        int pulledRf = pullAllRFFromNeighborGenerators(tile, level, pos);
+
+        // Step 2: total available RF = own + pulled
+        int rfConsumed = 0;
         boolean anyWorked = false;
 
+        // Step 3: batch-process each slot
         for (int t = 0; t < elapsed; t++) {
             boolean tickWorked = false;
 
@@ -192,29 +214,24 @@ public abstract class IronFurnaceTickMixin {
                 ItemStack output = tile.inventory.get(outputSlot);
                 if (!output.isEmpty() && output.getCount() >= output.getMaxStackSize()) continue;
 
-                // Use accessor for protected getFactoryCookTime
                 int totalCookTime = acc.invokeGetFactoryCookTime(slot);
                 if (totalCookTime <= 0) continue;
 
-                // Use the tile's already-cached totalCookTime if set, otherwise use computed
                 int cookTotal = tile.factoryTotalCookTime[i];
                 if (cookTotal <= 0) cookTotal = totalCookTime;
 
-                // Check recipe — use accessor for protected getRecipeFactory
-                Optional<? extends Recipe<?>> recipeOpt = acc.invokeGetRecipeFactory(slot, input);
+                Optional<? extends net.minecraft.world.item.crafting.AbstractCookingRecipe> recipeOpt = acc.invokeGetRecipeFactory(slot, input);
                 if (recipeOpt.isEmpty()) continue;
-                Recipe<?> recipe = recipeOpt.get();
+                net.minecraft.world.item.crafting.AbstractCookingRecipe recipe = recipeOpt.get();
 
-                // Check canFactorySmelt via accessor
                 if (!acc.invokeCanFactorySmelt(recipe, slot)) continue;
 
-                // RF cost: cookTotal * 20 is the base energyRecipe
-                int energyRecipe = cookTotal * 20;
-                // Augment slot 4 can modify energyRecipe
+                // RF per item = recipe base cookingTime * 20
+                int recipeCookTime = recipe.getCookingTime();
+                int energyRecipe = recipeCookTime * 20;
                 ItemStack augment = tile.inventory.get(4);
                 if (!augment.isEmpty()) {
                     String augName = augment.getItem().getClass().getName();
-                    // ItemAugmentSpeed doubles RF, ItemAugmentFuel halves RF
                     if (augName.contains("ItemAugmentSpeed")) {
                         energyRecipe *= 2;
                     } else if (augName.contains("ItemAugmentFuel")) {
@@ -223,12 +240,14 @@ public abstract class IronFurnaceTickMixin {
                 }
                 int energyPerTick = Math.max(1, energyRecipe / Math.max(1, cookTotal));
 
-                // Need RF to start a new item
+                // If not enough RF for even 1 tick, skip
                 if (tile.getEnergy() < energyPerTick && tile.factoryCookTime[i] <= 0) continue;
 
+                // Drain RF
                 if (tile.getEnergy() >= energyPerTick) {
                     tile.setEnergy(tile.getEnergy() - energyPerTick);
                     tile.usedRF[i] += energyPerTick;
+                    rfConsumed += energyPerTick;
                 }
 
                 tile.factoryCookTime[i]++;
@@ -249,11 +268,13 @@ public abstract class IronFurnaceTickMixin {
 
         if (anyWorked) {
             tile.setChanged();
+            int finalOutput = calcTotalOutput(tile, outputBefore, 6);
+            int finalCook = calcTotalCookAdvance(tile, cookBefore, 6);
             sendChatDebug(level, pos, "Factory", elapsed,
-                    0,
-                    calcTotalOutput(tile, outputBefore, 6),
-                    calcTotalCookAdvance(tile, cookBefore, 6),
-                    energyBefore - tile.getEnergy(),
+                    pulledRf,
+                    finalOutput,
+                    finalCook,
+                    rfConsumed,
                     tile.getEnergy() > 0);
         }
     }
@@ -273,7 +294,6 @@ public abstract class IronFurnaceTickMixin {
         for (int t = 0; t < elapsed; t++) {
             if (tile.getEnergy() >= tile.getCapacity()) break;
 
-            // Try to consume fuel if needed
             if (tile.generatorBurn <= 0.0) {
                 ItemStack fuel = tile.inventory.get(6);
                 if (fuel.isEmpty()) break;
@@ -324,12 +344,61 @@ public abstract class IronFurnaceTickMixin {
         if (tile.generatorBurn <= 0.0) {
             tile.generatorBurn = 0.0;
         }
-        acc.invokeEnergyOut();
 
         sendChatDebug(level, pos, "Generator", elapsed,
                 fuelBefore - tile.inventory.get(6).getCount(),
                 tile.getEnergy() - energyBefore,
                 0, 0, tile.generatorBurn > 0.0);
+    }
+
+    // ══════════════════════════════════════════════
+    //  Neighbor generator pre-processing
+    // ══════════════════════════════════════════════
+
+    /**
+     * Scans NSEW neighbors for generator-mode furnaces and runs their
+     * catchup FIRST, so factory can pull freshly-generated RF.
+     * Marks them so their own tick skips catchup (no double-process).
+     */
+    @Unique
+    private static void processNeighborGenerators(BlockIronFurnaceTileBase tile, long elapsed,
+                                                  Level level, BlockPos pos) {
+        for (Direction dir : Direction.Plane.HORIZONTAL) {
+            BlockPos neighbor = pos.relative(dir);
+            if (!level.isLoaded(neighbor)) continue;
+            BlockEntity be = level.getBlockEntity(neighbor);
+            if (be instanceof BlockIronFurnaceTileBase genTile && genTile.isGenerator()) {
+                IronFurnaceTickMixin mixinSelf = (IronFurnaceTickMixin) (Object) genTile;
+                if (mixinSelf.keepsmelting$catchupDone) continue;
+                // Run generator catchup now so RF is generated
+                applyGeneratorCatchup(genTile, elapsed, level, neighbor);
+                mixinSelf.keepsmelting$catchupDone = true;
+            }
+        }
+    }
+
+    // ══════════════════════════════════════════════
+    //  RF pull: factory takes ALL RF from neighbor generators
+    // ══════════════════════════════════════════════
+
+    @Unique
+    private static int pullAllRFFromNeighborGenerators(BlockIronFurnaceTileBase tile, Level level,
+                                                       BlockPos pos) {
+        int totalPulled = 0;
+        for (Direction dir : Direction.Plane.HORIZONTAL) {
+            BlockPos neighbor = pos.relative(dir);
+            if (!level.isLoaded(neighbor)) continue;
+            BlockEntity be = level.getBlockEntity(neighbor);
+            if (be instanceof BlockIronFurnaceTileBase neighborTile && neighborTile.isGenerator()) {
+                int available = neighborTile.getEnergy();
+                if (available <= 0) continue;
+                neighborTile.removeEnergy(available);
+                neighborTile.setChanged();
+                tile.setEnergy(tile.getEnergy() + available);
+                totalPulled += available;
+            }
+        }
+        return totalPulled;
     }
 
     // ══════════════════════════════════════════════
