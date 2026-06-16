@@ -4,10 +4,14 @@ import com.example.examplemod.KeepSmeltingConfig;
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.common.ForgeHooks;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Pseudo;
@@ -16,6 +20,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -65,6 +70,13 @@ public abstract class IronFurnaceTickMixin {
         // furnace mode only for safety
         if (tile.currentAugment[2] != 0) return;
         if (tile.furnaceBurnTime <= 0 || tile.totalCookTime <= 0) return;
+
+        // ── snapshot before for chatDebug ──
+        int cookTimeBefore = tile.cookTime;
+        int burnTimeBefore = tile.furnaceBurnTime;
+        int inputBefore = tile.inventory.get(0).getCount();
+        int outputBefore = tile.inventory.get(2).getCount();
+        int fuelBefore = tile.inventory.get(1).getCount();
 
         ItemStack input = tile.inventory.get(0);
         if (input.isEmpty()) return;
@@ -124,5 +136,32 @@ public abstract class IronFurnaceTickMixin {
         tile.furnaceBurnTime = Math.max(0, burnTime);
         tile.cookTime = Math.max(0, cookTime);
         tile.setChanged();
+
+        // ── chat debug ──
+        if (KeepSmeltingConfig.COMMON.chatDebug.get() && level instanceof ServerLevel serverLevel) {
+            int outputAfter = tile.inventory.get(2).getCount();
+            int fuelAfter = tile.inventory.get(1).getCount();
+            int cookTimeAfter = tile.cookTime;
+            int burnTimeAfter = tile.furnaceBurnTime;
+
+            Component msg = Component.literal(
+                    String.format("§7[§6KeepSmelting§7] §e[IronFurnace] §f%s §7| §e%d§7t elapsed | §c-%dfuel §a+%dout §b+%dcook §d-%dburn §7lit=%s",
+                            pos.toShortString(), elapsed,
+                            fuelBefore - fuelAfter,
+                            outputAfter - outputBefore,
+                            cookTimeAfter - cookTimeBefore,
+                            burnTimeBefore - burnTimeAfter,
+                            burnTimeAfter > 0));
+            sendToNearbyPlayers(serverLevel, pos, msg);
+        }
+    }
+
+    @Unique
+    private static void sendToNearbyPlayers(ServerLevel level, BlockPos pos, Component msg) {
+        AABB box = new AABB(pos).inflate(16);
+        List<ServerPlayer> players = level.getEntitiesOfClass(ServerPlayer.class, box);
+        for (ServerPlayer p : players) {
+            p.sendSystemMessage(msg);
+        }
     }
 }
