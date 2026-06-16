@@ -1,5 +1,6 @@
 package com.example.examplemod.mixin.ironfurnaces;
 
+import com.example.examplemod.KeepSmelting;
 import com.example.examplemod.KeepSmeltingConfig;
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraft.core.BlockPos;
@@ -454,7 +455,8 @@ public abstract class IronFurnaceTickMixin {
     @Unique
     private static void sendChatDebug(Level level, BlockPos pos, String mode, long elapsed,
                                       int fuelDelta, int outputDelta, int cookDelta, int burnDelta, boolean lit) {
-        if (!KeepSmeltingConfig.COMMON.chatDebug.get()) return;
+        KeepSmeltingConfig.DebugMode dm = KeepSmeltingConfig.COMMON.debugMode.get();
+        if (dm == KeepSmeltingConfig.DebugMode.OFF) return;
         if (!(level instanceof ServerLevel serverLevel)) return;
 
         Component msg;
@@ -469,7 +471,12 @@ public abstract class IronFurnaceTickMixin {
                             mode, pos.toShortString(), elapsed,
                             outputDelta, fuelDelta, burnDelta, lit));
         }
-        sendToNearbyPlayers(serverLevel, pos, msg);
+
+        if (dm == KeepSmeltingConfig.DebugMode.CHAT) {
+            sendToNearbyPlayers(serverLevel, pos, msg);
+        } else {
+            KeepSmelting.LOGGER.info(msg.getString());
+        }
     }
 
     @Unique

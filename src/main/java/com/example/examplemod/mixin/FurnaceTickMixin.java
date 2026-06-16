@@ -1,5 +1,6 @@
 package com.example.examplemod.mixin;
 
+import com.example.examplemod.KeepSmelting;
 import com.example.examplemod.KeepSmeltingConfig;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
@@ -166,22 +167,28 @@ public abstract class FurnaceTickMixin {
             furnace.setChanged();
         }
 
-        // ── chat debug — read items fresh (callBurn may replace ItemStack refs) ──
-        if (KeepSmeltingConfig.COMMON.chatDebug.get()) {
+        // ── debug output — only when something actually happened ──
+        if (KeepSmeltingConfig.COMMON.debugMode.get() != KeepSmeltingConfig.DebugMode.OFF) {
             NonNullList<ItemStack> itemsAfter = acc.getItems();
-            int outputAfter = itemsAfter.get(2).getCount();
-            int fuelAfter = itemsAfter.get(1).getCount();
-            int progressNow = acc.getCookingProgress();
+            int outputDelta = itemsAfter.get(2).getCount() - outputBefore;
+            int fuelDelta = fuelBefore - itemsAfter.get(1).getCount();
+            int progressDelta = acc.getCookingProgress() - progressBefore;
+            int rfDelta = 0;
             boolean lit = acc.callIsLit();
 
+            if (outputDelta == 0 && fuelDelta == 0 && progressDelta == 0) return;
+
             Component msg = Component.literal(
-                    String.format("§7[§6KeepSmelting§7] §f%s §7| §e%d§7t elapsed | §c-%dfuel §a+%dout §b+%dprogress §7lit=%s",
+                    String.format("§7[§6KeepSmelting§7] §f%s §7| §e%d§7t | §a+%ditem §c-%dfuel §7lit=%s",
                             pos.toShortString(), deltaTime,
-                            fuelBefore - fuelAfter,
-                            outputAfter - outputBefore,
-                            progressNow - progressBefore,
+                            outputDelta,
+                            fuelDelta,
                             lit));
-            sendToNearbyPlayers(level, pos, msg);
+            if (KeepSmeltingConfig.COMMON.debugMode.get() == KeepSmeltingConfig.DebugMode.LOG) {
+                KeepSmelting.LOGGER.info(msg.getString());
+            } else {
+                sendToNearbyPlayers(level, pos, msg);
+            }
         }
     }
 
