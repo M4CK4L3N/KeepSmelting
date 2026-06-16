@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "package": "mod.gottsch.forge.everfurnace.core.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "everfurnace.refmap.json",
+  "mixins": [
+    "IEverFurnaceBlockEntityMixin",
+    "EverFurnaceBlockEntityMixin",
+    "ICampfireBlockEntityMixin",
+    "CampfireBlockEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

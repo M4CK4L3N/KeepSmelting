@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "com.example.examplemod.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "timefurnace.refmap.json",
+  "mixins": [
+    "IFurnaceAccessor",
+    "FurnaceTickMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
