@@ -5,11 +5,17 @@ import com.example.examplemod.KeepSmeltingConfig.DebugMode;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 
 public class KeepSmeltingCommand {
+
+    private static final SuggestionProvider<CommandSourceStack> DEBUG_SUGGESTIONS =
+            (ctx, builder) -> SharedSuggestionProvider.suggest(
+                    new String[]{"OFF", "CHAT", "LOG"}, builder);
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("keepsmelting")
@@ -18,6 +24,7 @@ public class KeepSmeltingCommand {
                 // /keepsmelting debug <OFF|CHAT|LOG>
                 .then(Commands.literal("debug")
                         .then(Commands.argument("mode", StringArgumentType.word())
+                                .suggests(DEBUG_SUGGESTIONS)
                                 .executes(ctx -> setDebugMode(ctx, StringArgumentType.getString(ctx, "mode")))))
 
                 // /keepsmelting status
