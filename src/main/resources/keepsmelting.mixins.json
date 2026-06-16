@@ -6,7 +6,9 @@
   "refmap": "keepsmelting.refmap.json",
   "mixins": [
     "IFurnaceAccessor",
-    "FurnaceTickMixin"
+    "FurnaceTickMixin",
+    "ironfurnaces.IronFurnaceAccessor",
+    "ironfurnaces.IronFurnaceTickMixin"
   ],
   "injectors": {
     "defaultRequire": 0

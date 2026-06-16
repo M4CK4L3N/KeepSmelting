@@ -13,7 +13,8 @@
 				"list_directory",
 				"list_allowed_directories",
 				"directory_tree",
-				"move_file"
+				"move_file",
+				"search_files"
 			]
 		}
 	}

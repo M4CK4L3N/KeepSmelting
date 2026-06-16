@@ -71,6 +71,8 @@ obfuscation {
 }
 
 dependencies {
+    // compileOnly — Iron Furnaces jar for mixin compilation. Optional at runtime (defaultRequire: 0).
+    compileOnly files('libs/ironfurnaces-1.20.1-4.1.8.jar')
 }
 
 mixin {
