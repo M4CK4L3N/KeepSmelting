@@ -277,13 +277,20 @@ public abstract class IronFurnaceTickMixin {
         if (anyWorked) {
             tile.setChanged();
             int finalOutput = calcTotalOutput(tile, outputBefore, 6);
-            int finalCook = calcTotalCookAdvance(tile, cookBefore, 6);
-            sendChatDebug(level, pos, "Factory", elapsed,
-                    pulledRf,
-                    finalOutput,
-                    finalCook,
-                    rfConsumed,
-                    tile.getEnergy() > 0);
+            int rfPerItem = rfConsumed > 0 && finalOutput > 0 ? rfConsumed / finalOutput : 0;
+            int itemsStarted = 0;
+            for (int i = 0; i < 6; i++) {
+                if (tile.inventory.get(FACTORY_INPUT[i]).isEmpty()) continue;
+                if (tile.factoryCookTime[i] > 0 || cookBefore[i] > 0) itemsStarted++;
+            }
+            Component msg = Component.literal(
+                    String.format("§7[§6KeepSmelting§7] §e[Factory] §f%s §7| §e%d§7t | §a+%ditem §d-%dRF §7(%dRF/item) §7pulled=%dRF",
+                            pos.toShortString(), elapsed,
+                            finalOutput,
+                            rfConsumed,
+                            rfPerItem,
+                            pulledRf));
+            sendToNearbyPlayers((ServerLevel) level, pos, msg);
         }
     }
 
@@ -450,10 +457,18 @@ public abstract class IronFurnaceTickMixin {
         if (!KeepSmeltingConfig.COMMON.chatDebug.get()) return;
         if (!(level instanceof ServerLevel serverLevel)) return;
 
-        Component msg = Component.literal(
-                String.format("§7[§6KeepSmelting§7] §e[%s] §f%s §7| §e%d§7t | §c-%dfuel §a+%dout §b+%dcook §d-%drf §7lit=%s",
-                        mode, pos.toShortString(), elapsed,
-                        fuelDelta, outputDelta, cookDelta, burnDelta, lit));
+        Component msg;
+        if ("Generator".equals(mode)) {
+            msg = Component.literal(
+                    String.format("§7[§6KeepSmelting§7] §e[Generator] §f%s §7| §e%d§7t | §a+%dRF §c-%dfuel §7lit=%s",
+                            pos.toShortString(), elapsed,
+                            outputDelta, fuelDelta, lit));
+        } else {
+            msg = Component.literal(
+                    String.format("§7[§6KeepSmelting§7] §e[%s] §f%s §7| §e%d§7t | §a+%ditem §c-%dfuel §d-%dRF §7lit=%s",
+                            mode, pos.toShortString(), elapsed,
+                            outputDelta, fuelDelta, burnDelta, lit));
+        }
         sendToNearbyPlayers(serverLevel, pos, msg);
     }
 
