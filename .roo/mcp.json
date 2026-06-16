@@ -11,7 +11,9 @@
 				"read_text_file",
 				"create_directory",
 				"list_directory",
-				"list_allowed_directories"
+				"list_allowed_directories",
+				"directory_tree",
+				"move_file"
 			]
 		}
 	}
