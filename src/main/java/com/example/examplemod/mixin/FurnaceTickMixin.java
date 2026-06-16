@@ -122,7 +122,6 @@ public abstract class FurnaceTickMixin {
         if (!acc.callCanBurn(level.registryAccess(), recipe, items, furnace.getMaxStackSize())) return;
 
         ItemStack fuel = items.get(1);
-        if (fuel.isEmpty()) return;
 
         int cookTotal = acc.getCookingTotalTime();
         if (cookTotal <= 0) return;
@@ -136,8 +135,13 @@ public abstract class FurnaceTickMixin {
         int fuelBefore = fuel.getCount();
         int progressBefore = acc.getCookingProgress();
 
-        // max ticks available from remaining fuel
-        long fuelTicks = (long) (fuel.getCount() - 1) * litDur + acc.getLitTime();
+        // max ticks available — handle empty fuel (last ember still burning)
+        long fuelTicks;
+        if (fuel.isEmpty()) {
+            fuelTicks = acc.getLitTime();              // only remaining burn time, no more fuel
+        } else {
+            fuelTicks = (long) (fuel.getCount() - 1) * litDur + acc.getLitTime();
+        }
         // max ticks needed to smelt all input
         long cookTicksNeeded = (long) (input.getCount() - 1) * cookTotal
                 + (cookTotal - acc.getCookingProgress());
@@ -206,6 +210,13 @@ public abstract class FurnaceTickMixin {
         }
 
         remaining -= litTime;
+
+        // if no fuel left, burn what we can and stop
+        if (fuelStack.isEmpty()) {
+            acc.setLitTime(0);
+            return;
+        }
+
         int wholeItems = (int) Math.ceil((double) remaining / litDuration);
         wholeItems = Math.min(wholeItems, fuelStack.getCount());
 
