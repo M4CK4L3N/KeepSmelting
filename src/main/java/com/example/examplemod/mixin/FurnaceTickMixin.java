@@ -130,7 +130,7 @@ public abstract class FurnaceTickMixin {
         int litDur = acc.getLitDuration();
         if (litDur <= 0) return;
 
-        // snapshot for chat debug
+        // snapshot before — items may be replaced by callBurn (new ItemStack ref)
         int inputBefore = input.getCount();
         int outputBefore = output.getCount();
         int fuelBefore = fuel.getCount();
@@ -162,16 +162,21 @@ public abstract class FurnaceTickMixin {
             furnace.setChanged();
         }
 
-        // ── chat debug ──
+        // ── chat debug — read items fresh (callBurn may replace ItemStack refs) ──
         if (TimeFurnaceConfig.COMMON.chatDebug.get()) {
-            int outputProduced = output.getCount() - outputBefore;
-            int fuelConsumed = fuelBefore - fuel.getCount();
+            NonNullList<ItemStack> itemsAfter = acc.getItems();
+            int outputAfter = itemsAfter.get(2).getCount();
+            int fuelAfter = itemsAfter.get(1).getCount();
             int progressNow = acc.getCookingProgress();
             boolean lit = acc.callIsLit();
 
             Component msg = Component.literal(
                     String.format("§7[§6TimeFurnace§7] §f%s §7| §e%d§7t elapsed | §c-%dfuel §a+%dout §b+%dprogress §7lit=%s",
-                            pos.toShortString(), deltaTime, fuelConsumed, outputProduced, progressNow - progressBefore, lit));
+                            pos.toShortString(), deltaTime,
+                            fuelBefore - fuelAfter,
+                            outputAfter - outputBefore,
+                            progressNow - progressBefore,
+                            lit));
             sendToNearbyPlayers(level, pos, msg);
         }
     }
