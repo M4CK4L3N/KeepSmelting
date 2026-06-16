@@ -240,15 +240,16 @@ public abstract class IronFurnaceTickMixin {
                 }
                 int energyPerTick = Math.max(1, energyRecipe / Math.max(1, cookTotal));
 
-                // If not enough RF for even 1 tick, skip
-                if (tile.getEnergy() < energyPerTick && tile.factoryCookTime[i] <= 0) continue;
+                // Gate: need FULL item RF cost to START a new item (mirrors original ironfurnaces)
+                if (tile.getEnergy() < energyRecipe && tile.factoryCookTime[i] <= 0) continue;
 
-                // Drain RF
-                if (tile.getEnergy() >= energyPerTick) {
-                    tile.setEnergy(tile.getEnergy() - energyPerTick);
-                    tile.usedRF[i] += energyPerTick;
-                    rfConsumed += energyPerTick;
-                }
+                // Drain RF per tick (same formula as original ironfurnaces: energy / cookTotal per tick)
+                int rfPerTick = Math.max(1, (int)((double)energyRecipe / (double)cookTotal));
+                if (tile.getEnergy() < rfPerTick) continue; // Not enough RF even for 1 tick - freeze slot
+
+                tile.setEnergy(tile.getEnergy() - rfPerTick);
+                tile.usedRF[i] += rfPerTick;
+                rfConsumed += rfPerTick;
 
                 tile.factoryCookTime[i]++;
                 tickWorked = true;
@@ -256,6 +257,13 @@ public abstract class IronFurnaceTickMixin {
 
                 if (tile.factoryCookTime[i] >= cookTotal) {
                     tile.factoryCookTime[i] = 0;
+                    // Deduct remaining RF cost (mirrors original ironfurnaces logic)
+                    if (tile.usedRF[i] < (double)energyRecipe) {
+                        double diff = (double)energyRecipe - tile.usedRF[i];
+                        int actualDrain = Math.min(tile.getEnergy(), (int)diff);
+                        tile.setEnergy(tile.getEnergy() - actualDrain);
+                        rfConsumed += actualDrain;
+                    }
                     tile.usedRF[i] = 0.0;
                     tile.factoryTotalCookTime[i] = acc.invokeGetFactoryCookTime(slot);
                     acc.invokeFactorySmelt(recipe, slot);
