@@ -48,16 +48,26 @@ public abstract class IronFurnaceTickMixin {
     private boolean keepsmelting$catchupDone;
 
     @Unique
+    private String keepsmelting$activeTimeMode;
+
+    @Unique
     private static final int[] FACTORY_INPUT = new int[]{7, 8, 9, 10, 11, 12};
 
     @Inject(method = "saveAdditional", at = @At("TAIL"))
     private void onSave(CompoundTag tag, CallbackInfo ci) {
         tag.putLong(TAG_LAST_TIME, this.keepsmelting$lastRealTime);
+        tag.putString("keepsmelting_timeMode", KeepSmeltingConfig.COMMON.timeMode.get().name());
     }
 
     @Inject(method = "load", at = @At("TAIL"))
     private void onLoad(CompoundTag tag, CallbackInfo ci) {
-        this.keepsmelting$lastRealTime = tag.getLong(TAG_LAST_TIME);
+        String savedMode = tag.getString("keepsmelting_timeMode");
+        String currentMode = KeepSmeltingConfig.COMMON.timeMode.get().name();
+        if (!savedMode.isEmpty() && savedMode.equals(currentMode)) {
+            this.keepsmelting$lastRealTime = tag.getLong(TAG_LAST_TIME);
+        } else {
+            this.keepsmelting$lastRealTime = 0L;
+        }
     }
 
     @Inject(method = "tick", at = @At("HEAD"), remap = false)
@@ -67,12 +77,28 @@ public abstract class IronFurnaceTickMixin {
         if (!KeepSmeltingConfig.COMMON.catchupEnabled.get()) return;
 
         IronFurnaceTickMixin self = (IronFurnaceTickMixin) (Object) tile;
-        long now = System.currentTimeMillis();
-        long last = self.keepsmelting$lastRealTime;
-        self.keepsmelting$lastRealTime = now;
-        if (last == 0) return;
+        String currentMode = KeepSmeltingConfig.COMMON.timeMode.get().name();
+        // Reset timer if time mode changed since last tick (in-memory avoids NBT save/load lag)
+        if (self.keepsmelting$activeTimeMode != null && !self.keepsmelting$activeTimeMode.equals(currentMode)) {
+            self.keepsmelting$lastRealTime = 0L;
+        }
+        self.keepsmelting$activeTimeMode = currentMode;
 
-        long elapsed = (now - last) / 50L;
+        long now;
+        long last = self.keepsmelting$lastRealTime;
+        if (KeepSmeltingConfig.COMMON.timeMode.get() == KeepSmeltingConfig.TimeMode.GAMETIME) {
+            now = level.getGameTime();
+        } else {
+            now = System.currentTimeMillis();
+        }
+        self.keepsmelting$lastRealTime = now;
+        long elapsed;
+        if (KeepSmeltingConfig.COMMON.timeMode.get() == KeepSmeltingConfig.TimeMode.GAMETIME) {
+            elapsed = now - last; // already in ticks
+        } else {
+            elapsed = (now - last) / 50L; // ms → ticks
+        }
+        if (last == 0) return;
         int minDelta = KeepSmeltingConfig.COMMON.minDeltaThreshold.get();
         if (elapsed < minDelta) return;
         long max = KeepSmeltingConfig.COMMON.maxCatchupTicks.get();

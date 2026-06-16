@@ -24,6 +24,7 @@ public final class KeepSmeltingConfig {
         public final ForgeConfigSpec.LongValue maxCatchupTicks;
         public final ForgeConfigSpec.IntValue minDeltaThreshold;
         public final ForgeConfigSpec.EnumValue<DebugMode> debugMode;
+        public final ForgeConfigSpec.EnumValue<TimeMode> timeMode;
 
         Common(ForgeConfigSpec.Builder builder) {
             builder.comment("KeepSmelting — offline furnace smelting").push("catchup");
@@ -39,6 +40,9 @@ public final class KeepSmeltingConfig {
             this.debugMode = builder
                 .comment("Debug output mode: OFF, CHAT (send to nearby players), LOG (print to Minecraft log).")
                 .defineEnum("debugMode", DebugMode.OFF);
+            this.timeMode = builder
+                .comment("Time mode: REALTIME (wall clock, works while paused) or GAMETIME (MC ticks, only when game runs).")
+                .defineEnum("timeMode", TimeMode.REALTIME);
             builder.pop();
         }
     }
@@ -47,5 +51,10 @@ public final class KeepSmeltingConfig {
         OFF,
         CHAT,
         LOG
+    }
+
+    public enum TimeMode {
+        REALTIME,
+        GAMETIME
     }
 }

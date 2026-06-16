@@ -17,6 +17,10 @@ public class KeepSmeltingCommand {
             (ctx, builder) -> SharedSuggestionProvider.suggest(
                     new String[]{"OFF", "CHAT", "LOG"}, builder);
 
+    private static final SuggestionProvider<CommandSourceStack> TIME_SUGGESTIONS =
+            (ctx, builder) -> SharedSuggestionProvider.suggest(
+                    new String[]{"REALTIME", "GAMETIME"}, builder);
+
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("keepsmelting")
                 .requires(src -> src.hasPermission(2))
@@ -26,6 +30,12 @@ public class KeepSmeltingCommand {
                         .then(Commands.argument("mode", StringArgumentType.word())
                                 .suggests(DEBUG_SUGGESTIONS)
                                 .executes(ctx -> setDebugMode(ctx, StringArgumentType.getString(ctx, "mode")))))
+
+                // /keepsmelting time <REALTIME|GAMETIME>
+                .then(Commands.literal("time")
+                        .then(Commands.argument("mode", StringArgumentType.word())
+                                .suggests(TIME_SUGGESTIONS)
+                                .executes(ctx -> setTimeMode(ctx, StringArgumentType.getString(ctx, "mode")))))
 
                 // /keepsmelting status
                 .then(Commands.literal("status")
@@ -38,9 +48,9 @@ public class KeepSmeltingCommand {
 
     private static int setDebugMode(CommandContext<CommandSourceStack> ctx, String mode) {
         String upper = mode.toUpperCase();
-        DebugMode dm;
+        KeepSmeltingConfig.DebugMode dm;
         try {
-            dm = DebugMode.valueOf(upper);
+            dm = KeepSmeltingConfig.DebugMode.valueOf(upper);
         } catch (IllegalArgumentException e) {
             ctx.getSource().sendFailure(
                     Component.literal("§7[§6KeepSmelting§7] §cInvalid mode. Use: OFF, CHAT, or LOG"));
@@ -54,16 +64,35 @@ public class KeepSmeltingCommand {
         return 1;
     }
 
+    private static int setTimeMode(CommandContext<CommandSourceStack> ctx, String mode) {
+        String upper = mode.toUpperCase();
+        KeepSmeltingConfig.TimeMode tm;
+        try {
+            tm = KeepSmeltingConfig.TimeMode.valueOf(upper);
+        } catch (IllegalArgumentException e) {
+            ctx.getSource().sendFailure(
+                    Component.literal("§7[§6KeepSmelting§7] §cInvalid mode. Use: REALTIME or GAMETIME"));
+            return 0;
+        }
+        KeepSmeltingConfig.COMMON.timeMode.set(tm);
+        KeepSmeltingConfig.COMMON.timeMode.save();
+        ctx.getSource().sendSuccess(() ->
+                Component.literal(String.format("§7[§6KeepSmelting§7] time §a→ §f%s", tm)),
+                true);
+        return 1;
+    }
+
     private static int showStatus(CommandContext<CommandSourceStack> ctx) {
         boolean enabled = KeepSmeltingConfig.COMMON.catchupEnabled.get();
         long maxTicks = KeepSmeltingConfig.COMMON.maxCatchupTicks.get();
         int minDelta = KeepSmeltingConfig.COMMON.minDeltaThreshold.get();
-        DebugMode dm = KeepSmeltingConfig.COMMON.debugMode.get();
+        KeepSmeltingConfig.DebugMode dm = KeepSmeltingConfig.COMMON.debugMode.get();
+        KeepSmeltingConfig.TimeMode tm = KeepSmeltingConfig.COMMON.timeMode.get();
 
         ctx.getSource().sendSuccess(() ->
                 Component.literal(String.format(
-                        "§7[§6KeepSmelting§7] §fcatchup=%s §7| §emaxTicks=%d §7| §fminDelta=%d §7| §fdebug=%s",
-                        enabled, maxTicks, minDelta, dm)),
+                        "§7[§6KeepSmelting§7] §fcatchup=%s §7| §emaxTicks=%d §7| §fminDelta=%d §7| §fdebug=%s §7| §ftime=%s",
+                        enabled, maxTicks, minDelta, dm, tm)),
                 false);
         return 1;
     }
@@ -74,6 +103,9 @@ public class KeepSmeltingCommand {
                 false);
         ctx.getSource().sendSuccess(() ->
                 Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting debug <OFF|CHAT|LOG> §7— set debug output mode"),
+                false);
+        ctx.getSource().sendSuccess(() ->
+                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting time <REALTIME|GAMETIME> §7— set time tracking mode"),
                 false);
         return 1;
     }

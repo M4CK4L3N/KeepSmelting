@@ -52,6 +52,9 @@ public abstract class FurnaceTickMixin {
     @Unique
     private long keepsmelting$lastRealTime;
 
+    @Unique
+    private String keepsmelting$activeTimeMode;
+
     // ──────────────────────────────────────────────
     //  NBT save / load
     // ──────────────────────────────────────────────
@@ -60,11 +63,18 @@ public abstract class FurnaceTickMixin {
     private void onSave(net.minecraft.nbt.CompoundTag tag, CallbackInfo ci) {
         tag.putInt(NBT_VERSION_TAG, CURRENT_NBT_VERSION);
         tag.putLong(LAST_REAL_TIME_TAG, this.keepsmelting$lastRealTime);
+        tag.putString("keepsmelting_timeMode", KeepSmeltingConfig.COMMON.timeMode.get().name());
     }
 
     @Inject(method = "load", at = @At("TAIL"))
     private void onLoad(net.minecraft.nbt.CompoundTag tag, CallbackInfo ci) {
-        this.keepsmelting$lastRealTime = tag.getLong(LAST_REAL_TIME_TAG);
+        String savedMode = tag.getString("keepsmelting_timeMode");
+        String currentMode = KeepSmeltingConfig.COMMON.timeMode.get().name();
+        if (!savedMode.isEmpty() && savedMode.equals(currentMode)) {
+            this.keepsmelting$lastRealTime = tag.getLong(LAST_REAL_TIME_TAG);
+        } else {
+            this.keepsmelting$lastRealTime = 0L;
+        }
     }
 
     // ──────────────────────────────────────────────
@@ -80,14 +90,23 @@ public abstract class FurnaceTickMixin {
 
         FurnaceTickMixin self = (FurnaceTickMixin) (Object) blockEntity;
 
-        long now = System.currentTimeMillis();
+        String currentMode = KeepSmeltingConfig.COMMON.timeMode.get().name();
+        if (self.keepsmelting$activeTimeMode != null && !self.keepsmelting$activeTimeMode.equals(currentMode)) {
+            self.keepsmelting$lastRealTime = 0L;
+        }
+        self.keepsmelting$activeTimeMode = currentMode;
+
         long lastReal = self.keepsmelting$lastRealTime;
-        self.keepsmelting$lastRealTime = now;
+        long elapsedTicks;
+        if (KeepSmeltingConfig.COMMON.timeMode.get() == KeepSmeltingConfig.TimeMode.GAMETIME) {
+            self.keepsmelting$lastRealTime = world.getGameTime();
+            elapsedTicks = self.keepsmelting$lastRealTime - lastReal;
+        } else {
+            self.keepsmelting$lastRealTime = System.currentTimeMillis();
+            elapsedTicks = (self.keepsmelting$lastRealTime - lastReal) / 50L;
+        }
 
         if (lastReal == 0) return;
-
-        long elapsedMs = now - lastReal;
-        long elapsedTicks = elapsedMs / 50L;
 
         int minDelta = KeepSmeltingConfig.COMMON.minDeltaThreshold.get();
         if (elapsedTicks < minDelta) return;
