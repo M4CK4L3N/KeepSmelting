@@ -381,6 +381,11 @@ public abstract class IronFurnaceTickMixin {
     //  RF pull: factory takes ALL RF from neighbor generators
     // ══════════════════════════════════════════════
 
+    /**
+     * Scans 4-directional neighbors (NSEW) for generator-mode furnaces.
+     * Only pulls RF if generator side facing factory is set to Output(2) or I/O(3).
+     * Respects furnaceSettings per-side config.
+     */
     @Unique
     private static int pullAllRFFromNeighborGenerators(BlockIronFurnaceTileBase tile, Level level,
                                                        BlockPos pos) {
@@ -390,6 +395,10 @@ public abstract class IronFurnaceTickMixin {
             if (!level.isLoaded(neighbor)) continue;
             BlockEntity be = level.getBlockEntity(neighbor);
             if (be instanceof BlockIronFurnaceTileBase neighborTile && neighborTile.isGenerator()) {
+                // Check generator's side facing this factory: must be Output(2) or I/O(3)
+                Direction genSide = dir.getOpposite();
+                int setting = neighborTile.furnaceSettings.get(genSide.ordinal());
+                if (setting != 2 && setting != 3) continue;
                 int available = neighborTile.getEnergy();
                 if (available <= 0) continue;
                 neighborTile.removeEnergy(available);
