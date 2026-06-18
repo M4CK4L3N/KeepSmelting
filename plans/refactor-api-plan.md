@@ -415,10 +415,15 @@ steps:
 ## 11. Итоговый список задач
 
 ### Фаза 1: Быстрые фиксы (1-2 дня)
-- [ ] Переименовать com.example.examplemod -> com.keepsmelting
-- [ ] Удалить CookResult.java
-- [ ] Проверить и удалить accesstransformer.cfg
-- [ ] Обновить gradle.properties (лицензия, автор)
+- [x] Переименовать com.example.examplemod -> com.keepsmelting
+- [x] Сменить лицензию MIT + автор M4CK4L3N
+- [x] Удалить CookResult.java
+- [x] Удалить accesstransformer.cfg
+- [x] Обновить gradle.properties
+
+### Фаза 0: Оптимизация Iron Furnaces catchup (сейчас)
+- [ ] Factory Mode: переписать на адаптивный batch (O(elapsed×6) → O(events))
+- [ ] Generator Mode: переписать на batch (низкий приоритет)
 
 ### Фаза 2: Рефакторинг архитектуры (3-5 дней)
 - [ ] Создать api/ и internal/ структуру

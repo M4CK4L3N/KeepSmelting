@@ -36,6 +36,8 @@ import java.util.Optional;
  *   Slot 3 (Red):   recipe type — normal / Blasting / Smoking
  *   Slot 4 (Green): efficiency — normal / Speed / Fuel
  *   Slot 5 (Blue):  mode — Furnace / Factory / Generator
+ *
+ * Factory and Generator use adaptive batch loops instead of tick-by-tick.
  */
 @Pseudo
 @Mixin(targets = "ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase")
@@ -144,9 +146,7 @@ public abstract class IronFurnaceTickMixin {
     }
 
     // ══════════════════════════════════════════════
-    //  Furnace mode
-    //  recipeType honoured, Speed halts cook+halves burn,
-    //  Fuel extends cook+multiplies burn
+    //  Furnace mode — adaptive batch O(events)
     // ══════════════════════════════════════════════
 
     @Unique
@@ -170,17 +170,14 @@ public abstract class IronFurnaceTickMixin {
         IronFurnaceAccessor acc = (IronFurnaceAccessor) tile;
         long totalItems = 0;
 
-        // Detect green augment on slot 4 for burn time formula
         ItemStack greenAug = tile.inventory.get(4);
         boolean hasSpeed = !greenAug.isEmpty() && greenAug.getItem() instanceof ItemAugmentSpeed;
         boolean hasFuel = !greenAug.isEmpty() && greenAug.getItem() instanceof ItemAugmentFuel;
 
         while (remaining > 0 && burnTime > 0) {
-            // Sync totalCookTime with current augments (matches original tick behaviour)
             int newTotal = tile.getCookTime();
             if (newTotal > 0) totalCookTime = newTotal;
 
-            // Pull input from chest if empty
             if (input.isEmpty()) {
                 tile.furnaceBurnTime = Math.max(0, burnTime);
                 tile.cookTime = Math.max(0, cookTime);
@@ -199,7 +196,6 @@ public abstract class IronFurnaceTickMixin {
             while (cookTime >= totalCookTime && !input.isEmpty()) {
                 cookTime -= totalCookTime;
 
-                // Flush output to chest if full
                 if (!output.isEmpty() && output.getCount() >= maxStack) {
                     tile.furnaceBurnTime = Math.max(0, burnTime);
                     tile.cookTime = Math.max(0, cookTime);
@@ -230,7 +226,6 @@ public abstract class IronFurnaceTickMixin {
                 }
             }
 
-            // Burn new fuel if current exhausted and input exists
             if (burnTime <= 0 && remaining > 0) {
                 if (fuel.isEmpty()) {
                     tile.furnaceBurnTime = 0;
@@ -240,14 +235,9 @@ public abstract class IronFurnaceTickMixin {
                     fuel = tile.inventory.get(1);
                 }
                 if (!fuel.isEmpty()) {
-                    // Use tile.recipeType (set by red augment — normal/Smoking/Blasting)
                     RecipeType<?> rt = tile.recipeType;
                     int baseBurn = ForgeHooks.getBurnTime(fuel, rt);
                     if (baseBurn > 0) {
-                        // Mirror original Iron Furnaces burn time formula:
-                        //   no augment: baseBurn * cookTime / 200
-                        //   Speed:      baseBurn * cookTime / 200 / 2
-                        //   Fuel:       baseBurn * cookTime / 200 * 2
                         int adjustedCook = Math.max(1, totalCookTime);
                         int burn = baseBurn * adjustedCook / 200;
                         if (hasSpeed) burn /= 2;
@@ -274,9 +264,9 @@ public abstract class IronFurnaceTickMixin {
     }
 
     // ══════════════════════════════════════════════
-    //  Factory mode
-    //  Proper instanceof checks, Speed doubles RF,
-    //  Fuel halves RF cost
+    //  Factory mode — adaptive batch O(events)
+    //  Pre-computes per-slot RF costs, batches ticks
+    //  until next item completion or RF exhaustion
     // ══════════════════════════════════════════════
 
     @Unique
@@ -292,107 +282,153 @@ public abstract class IronFurnaceTickMixin {
             outputBefore[i] = tile.inventory.get(FACTORY_INPUT[i] + 6).getCount();
         }
 
-        // Detect green augment on slot 4
         ItemStack greenAug = tile.inventory.get(4);
         boolean hasSpeed = !greenAug.isEmpty() && greenAug.getItem() instanceof ItemAugmentSpeed;
         boolean hasFuel = !greenAug.isEmpty() && greenAug.getItem() instanceof ItemAugmentFuel;
 
-        // Force generator catchup on neighbors FIRST
         processNeighborGenerators(tile, elapsed, level, pos);
-
-        // Pull all RF from neighbor generators
         int pulledRf = pullAllRFFromNeighborGenerators(tile, level, pos);
 
         int rfConsumed = 0;
         boolean anyWorked = false;
+        long remaining = elapsed;
 
-        for (int t = 0; t < elapsed; t++) {
-            boolean tickWorked = false;
+        // Pre-compute per-slot data for slots that can run
+        int[] slotEnergyRecipe = new int[6];
+        int[] slotRfPerTick = new int[6];
+        int[] slotCookTotal = new int[6];
+        boolean[] slotActive = new boolean[6];
+        net.minecraft.world.item.crafting.AbstractCookingRecipe[] slotRecipe =
+                new net.minecraft.world.item.crafting.AbstractCookingRecipe[6];
+
+        for (int i = 0; i < 6; i++) {
+            int slot = FACTORY_INPUT[i];
+            ItemStack input = tile.inventory.get(slot);
+            if (input.isEmpty()) continue;
+
+            int outputSlot = slot + 6;
+            ItemStack out = tile.inventory.get(outputSlot);
+            if (!out.isEmpty() && out.getCount() >= out.getMaxStackSize()) continue;
+
+            int totalCook = acc.invokeGetFactoryCookTime(slot);
+            if (totalCook <= 0) continue;
+
+            int cookTotal = tile.factoryTotalCookTime[i];
+            if (cookTotal <= 0) cookTotal = totalCook;
+            slotCookTotal[i] = cookTotal;
+
+            Optional<? extends net.minecraft.world.item.crafting.AbstractCookingRecipe> recipeOpt =
+                    acc.invokeGetRecipeFactory(slot, input);
+            if (recipeOpt.isEmpty()) continue;
+            net.minecraft.world.item.crafting.AbstractCookingRecipe recipe = recipeOpt.get();
+            if (!acc.invokeCanFactorySmelt(recipe, slot)) continue;
+
+            int recipeCookTime = recipe.getCookingTime();
+            int energyRecipe = recipeCookTime * 20;
+            if (hasSpeed) energyRecipe *= 2;
+            if (hasFuel) energyRecipe /= 2;
+            slotEnergyRecipe[i] = energyRecipe;
+
+            int rfPerTick = Math.max(1, energyRecipe / Math.max(1, cookTotal));
+            slotRfPerTick[i] = rfPerTick;
+            slotRecipe[i] = recipe;
+            slotActive[i] = true;
+        }
+
+        while (remaining > 0) {
+            int totalRfPerTick = 0;
+            long minToEvent = remaining;
+            for (int i = 0; i < 6; i++) {
+                if (!slotActive[i]) continue;
+                if (tile.getEnergy() < slotEnergyRecipe[i] && tile.factoryCookTime[i] <= 0) {
+                    slotActive[i] = false;
+                    continue;
+                }
+                if (tile.getEnergy() < slotRfPerTick[i]) continue;
+                totalRfPerTick += slotRfPerTick[i];
+
+                long need = slotCookTotal[i] - tile.factoryCookTime[i];
+                if (need > 0) {
+                    minToEvent = Math.min(minToEvent, need);
+                }
+            }
+
+            if (totalRfPerTick <= 0) break;
+
+            long maxRfTicks = tile.getEnergy() / Math.max(1, totalRfPerTick);
+            long batch = Math.min(minToEvent, maxRfTicks);
+            if (batch <= 0) batch = 1;
+            batch = Math.min(batch, remaining);
+
+            int rfBatchCost = 0;
+            for (int i = 0; i < 6; i++) {
+                if (!slotActive[i]) continue;
+                if (tile.getEnergy() < slotRfPerTick[i]) continue;
+                rfBatchCost += slotRfPerTick[i] * (int) batch;
+                tile.usedRF[i] += slotRfPerTick[i] * (int) batch;
+                tile.factoryCookTime[i] += (int) batch;
+            }
+
+            tile.setEnergy(tile.getEnergy() - rfBatchCost);
+            rfConsumed += rfBatchCost;
+            remaining -= batch;
+            anyWorked = true;
 
             for (int i = 0; i < 6; i++) {
+                if (!slotActive[i]) continue;
+                if (tile.factoryCookTime[i] < slotCookTotal[i]) continue;
+
+                tile.factoryCookTime[i] = 0;
                 int slot = FACTORY_INPUT[i];
-                ItemStack input = tile.inventory.get(slot);
 
-                int outputSlot = slot + 6;
-                ItemStack output = tile.inventory.get(outputSlot);
-
-                // Flush output to chest
-                if (!output.isEmpty() && output.getCount() >= output.getMaxStackSize()) {
-                    tile.setChanged();
-                    acc.invokeAutoFactoryIO();
-                    output = tile.inventory.get(outputSlot);
-                    if (!output.isEmpty() && output.getCount() >= output.getMaxStackSize()) continue;
+                if (tile.usedRF[i] < (double) slotEnergyRecipe[i]) {
+                    double diff = (double) slotEnergyRecipe[i] - tile.usedRF[i];
+                    int actualDrain = Math.min(tile.getEnergy(), (int) diff);
+                    tile.setEnergy(tile.getEnergy() - actualDrain);
+                    rfConsumed += actualDrain;
                 }
+                tile.usedRF[i] = 0.0;
+                tile.factoryTotalCookTime[i] = acc.invokeGetFactoryCookTime(slot);
+                acc.invokeFactorySmelt(slotRecipe[i], slot);
+                tile.setChanged();
 
-                // Pull input from chest
+                ItemStack input = tile.inventory.get(slot);
                 if (input.isEmpty()) {
                     tile.setChanged();
                     acc.invokeAutoFactoryIO();
                     input = tile.inventory.get(slot);
-                    if (input.isEmpty()) continue;
                 }
-
-                int totalCookTime = acc.invokeGetFactoryCookTime(slot);
-                if (totalCookTime <= 0) continue;
-
-                int cookTotal = tile.factoryTotalCookTime[i];
-                if (cookTotal <= 0) cookTotal = totalCookTime;
-
-                Optional<? extends net.minecraft.world.item.crafting.AbstractCookingRecipe> recipeOpt =
-                        acc.invokeGetRecipeFactory(slot, input);
-                if (recipeOpt.isEmpty()) continue;
-                net.minecraft.world.item.crafting.AbstractCookingRecipe recipe = recipeOpt.get();
-
-                if (!acc.invokeCanFactorySmelt(recipe, slot)) continue;
-
-                // RF per item = recipe base cookingTime * 20
-                // Speed: ×2, Fuel: /2 (mirrors original BlockIronFurnaceTileBase line 809-810)
-                int recipeCookTime = recipe.getCookingTime();
-                int energyRecipe = recipeCookTime * 20;
-                if (hasSpeed) energyRecipe *= 2;
-                if (hasFuel) energyRecipe /= 2;
-
-                // Gate: need FULL item RF cost to START new item
-                if (tile.getEnergy() < energyRecipe && tile.factoryCookTime[i] <= 0) continue;
-
-                int rfPerTick = Math.max(1, energyRecipe / Math.max(1, cookTotal));
-                if (tile.getEnergy() < rfPerTick) continue;
-
-                tile.setEnergy(tile.getEnergy() - rfPerTick);
-                tile.usedRF[i] += rfPerTick;
-                rfConsumed += rfPerTick;
-
-                tile.factoryCookTime[i]++;
-                tickWorked = true;
-                anyWorked = true;
-
-                if (tile.factoryCookTime[i] >= cookTotal) {
-                    tile.factoryCookTime[i] = 0;
-                    if (tile.usedRF[i] < (double) energyRecipe) {
-                        double diff = (double) energyRecipe - tile.usedRF[i];
-                        int actualDrain = Math.min(tile.getEnergy(), (int) diff);
-                        tile.setEnergy(tile.getEnergy() - actualDrain);
-                        rfConsumed += actualDrain;
+                if (!input.isEmpty()) {
+                    int outputSlot = slot + 6;
+                    ItemStack out = tile.inventory.get(outputSlot);
+                    if (out.isEmpty() || out.getCount() < out.getMaxStackSize()) {
+                        int newTotal = acc.invokeGetFactoryCookTime(slot);
+                        if (newTotal > 0) {
+                            Optional<? extends net.minecraft.world.item.crafting.AbstractCookingRecipe> newRecipe =
+                                    acc.invokeGetRecipeFactory(slot, input);
+                            if (newRecipe.isPresent() && acc.invokeCanFactorySmelt(newRecipe.get(), slot)) {
+                                int newRC = newRecipe.get().getCookingTime();
+                                int newER = newRC * 20;
+                                if (hasSpeed) newER *= 2;
+                                if (hasFuel) newER /= 2;
+                                slotEnergyRecipe[i] = newER;
+                                slotRfPerTick[i] = Math.max(1, newER / Math.max(1, newTotal));
+                                slotCookTotal[i] = newTotal;
+                                slotRecipe[i] = newRecipe.get();
+                                slotActive[i] = true;
+                                continue;
+                            }
+                        }
                     }
-                    tile.usedRF[i] = 0.0;
-                    tile.factoryTotalCookTime[i] = acc.invokeGetFactoryCookTime(slot);
-                    acc.invokeFactorySmelt(recipe, slot);
-                    tile.setChanged();
                 }
+                slotActive[i] = false;
             }
-
-            if (!tickWorked) break;
         }
 
         if (anyWorked) {
             tile.setChanged();
             int finalOutput = calcTotalOutput(tile, outputBefore, 6);
             int rfPerItem = rfConsumed > 0 && finalOutput > 0 ? rfConsumed / finalOutput : 0;
-            int itemsStarted = 0;
-            for (int i = 0; i < 6; i++) {
-                if (tile.inventory.get(FACTORY_INPUT[i]).isEmpty()) continue;
-                if (tile.factoryCookTime[i] > 0 || cookBefore[i] > 0) itemsStarted++;
-            }
             String itemStr = finalOutput > 0
                     ? String.format("smelted: §a%d", finalOutput)
                     : "smelted: 0";
@@ -407,9 +443,8 @@ public abstract class IronFurnaceTickMixin {
     }
 
     // ══════════════════════════════════════════════
-    //  Generator mode
-    //  Already correct — getGeneratorBurn() and
-    //  getGeneration() handle Speed/Fuel internally
+    //  Generator mode — adaptive batch O(events)
+    //  Batches ticks until fuel burns out or RF fills up
     // ══════════════════════════════════════════════
 
     @Unique
@@ -419,10 +454,12 @@ public abstract class IronFurnaceTickMixin {
 
         int energyBefore = tile.getEnergy();
         int fuelBefore = tile.inventory.get(6).getCount();
+        long remaining = elapsed;
 
-        for (int t = 0; t < elapsed; t++) {
+        while (remaining > 0) {
             if (tile.getEnergy() >= tile.getCapacity()) break;
 
+            // Refuel if burn exhausted
             if (tile.generatorBurn <= 0.0) {
                 ItemStack fuel = tile.inventory.get(6);
                 if (fuel.isEmpty()) {
@@ -445,33 +482,52 @@ public abstract class IronFurnaceTickMixin {
                 tile.setChanged();
             }
 
-            if (tile.generatorBurn > 0.0) {
-                int gen = tile.getGeneration();
-                tile.gottenRF += gen;
-                tile.setEnergy(tile.getEnergy() + gen);
+            if (tile.generatorBurn <= 0.0) break;
 
-                double max = tile.generatorRecentRecipeRF * 20.0;
-                if (tile.generatorBurn - gen / 20.0 <= 0.0) {
-                    if (tile.gottenRF + gen > max && tile.gottenRF + gen < tile.getCapacity()) {
-                        int diff = (int) (tile.gottenRF + gen - max);
-                        tile.setEnergy(tile.getEnergy() + gen);
-                        tile.removeEnergy(diff);
-                    }
-                    if (tile.gottenRF + gen < max) {
-                        int diff = (int) (max - tile.gottenRF + gen);
-                        tile.setEnergy(tile.getEnergy() + gen);
-                        tile.setEnergy(tile.getEnergy() + diff);
-                    }
-                    tile.gottenRF = 0.0;
-                }
+            // Calculate how many ticks this fuel lasts
+            int gen = tile.getGeneration();
+            if (gen <= 0) break;
 
-                tile.generatorBurn -= gen / 20.0;
-                if (tile.generatorBurn <= 0.0) {
-                    acc.invokeAutoIOGenerator();
-                    tile.generatorBurn = 0.0;
-                }
-                tile.setChanged();
+            // generatorBurn decreases by gen/20 per tick
+            // So total ticks this burn = generatorBurn / (gen/20) = generatorBurn * 20 / gen
+            long ticksThisBurn = (long) Math.ceil(tile.generatorBurn * 20.0 / gen);
+            long ticksToCap = 0;
+            int remainingCap = tile.getCapacity() - tile.getEnergy();
+            if (remainingCap > 0) {
+                ticksToCap = (long) Math.ceil((double) remainingCap / gen);
             }
+
+            long batch = Math.min(remaining, Math.min(ticksThisBurn, ticksToCap));
+            if (batch <= 0) batch = 1;
+
+            // Apply batch
+            double totalGen = gen * batch;
+            double totalBurn = gen / 20.0 * batch;
+
+            tile.gottenRF += totalGen;
+            tile.setEnergy(tile.getEnergy() + (int) totalGen);
+            tile.generatorBurn -= totalBurn;
+
+            // Handle the burn-end cleanup (mirrors original logic)
+            if (tile.generatorBurn <= 0.0) {
+                double max = tile.generatorRecentRecipeRF * 20.0;
+                if (tile.gottenRF + gen > max && tile.gottenRF + gen < tile.getCapacity()) {
+                    int diff = (int) (tile.gottenRF + gen - max);
+                    tile.setEnergy(tile.getEnergy() + gen);
+                    tile.removeEnergy(diff);
+                }
+                if (tile.gottenRF + gen < max) {
+                    int diff = (int) (max - tile.gottenRF + gen);
+                    tile.setEnergy(tile.getEnergy() + gen);
+                    tile.setEnergy(tile.getEnergy() + diff);
+                }
+                tile.gottenRF = 0.0;
+                acc.invokeAutoIOGenerator();
+                tile.generatorBurn = 0.0;
+            }
+
+            remaining -= batch;
+            tile.setChanged();
         }
 
         if (tile.generatorBurn <= 0.0) {
