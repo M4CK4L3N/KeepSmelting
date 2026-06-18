@@ -2,8 +2,6 @@
 
 Furnaces keep smelting even when you are offline. Uses real-world time to calculate how many items would have been cooked.
 
-**Inspired by EverFurnace, but written from scratch with a different approach.**
-
 ## Features
 
 - ⏰ **Real-time & Game-time modes** — works across chunk unload, game exit, and menu pause
@@ -134,4 +132,3 @@ KeepSmeltingConfig.COMMON.timeMode.set(TimeMode.REALTIME);
 
 MIT © M4CK4L3N
 
-Inspired by EverFurnace (LGPL-3.0).
