@@ -16,7 +16,8 @@
 				"move_file",
 				"search_files",
 				"edit_file",
-				"read_file"
+				"read_file",
+				"write_file"
 			]
 		}
 	}

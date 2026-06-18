@@ -1,4 +1,10 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive",
-    "java.compile.nullAnalysis.mode": "automatic"
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.compile.nullAnalysis.mode": "disabled",
+    "files.watcherExclude": {
+        "**/build/**": true,
+        "**/buildSrc/**": true,
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true
+    }
 }
