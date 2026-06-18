@@ -1,6 +1,9 @@
 package com.keepsmelting;
 
+import com.keepsmelting.api.CatchupHandlerRegistry;
 import com.keepsmelting.command.KeepSmeltingCommand;
+import com.keepsmelting.internal.ironfurnaces.IronFurnaceCatchupHandler;
+import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -18,6 +21,15 @@ public class KeepSmelting {
     @SuppressWarnings("removal")
     public KeepSmelting() {
         KeepSmeltingConfig.register();
+
+        // Register built-in handlers
+        try {
+            Class.forName("ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase");
+            CatchupHandlerRegistry.register(BlockIronFurnaceTileBase.class, IronFurnaceCatchupHandler.INSTANCE);
+            LOGGER.info("Iron Furnaces support registered");
+        } catch (ClassNotFoundException e) {
+            LOGGER.info("Iron Furnaces not detected — skipping support");
+        }
 
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         modBus.addListener(this::onCommonSetup);
