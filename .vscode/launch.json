@@ -6,45 +6,21 @@
       "request": "launch",
       "name": "Client",
       "presentation": {
-        "group": "Mod Development - keepsmelting",
+        "group": "Mod Development - KeepSmelting",
         "order": 0
       },
-      "projectName": "keepsmelting",
+      "projectName": "KeepSmelting",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\clientRunProgramArgs.txt"
+        "@D:\\projects\\minecraft\\KeepSmelting\\build\\moddev\\clientRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\clientRunVmArgs.txt",
-        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+        "@D:\\projects\\minecraft\\KeepSmelting\\build\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\KeepSmelting\\bin\\main"
       ],
       "cwd": "${workspaceFolder}\\run",
       "env": {
-        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
-      },
-      "console": "internalConsole",
-      "shortenCommandLine": "none"
-    },
-    {
-      "type": "java",
-      "request": "launch",
-      "name": "Server",
-      "presentation": {
-        "group": "Mod Development - keepsmelting",
-        "order": 3
-      },
-      "projectName": "keepsmelting",
-      "mainClass": "net.neoforged.devlaunch.Main",
-      "args": [
-        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\serverRunProgramArgs.txt"
-      ],
-      "vmArgs": [
-        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\serverRunVmArgs.txt",
-        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
-      ],
-      "cwd": "${workspaceFolder}\\run",
-      "env": {
-        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\KeepSmelting\\bin\\main"
       },
       "console": "internalConsole",
       "shortenCommandLine": "none"
@@ -54,21 +30,21 @@
       "request": "launch",
       "name": "Data",
       "presentation": {
-        "group": "Mod Development - keepsmelting",
+        "group": "Mod Development - KeepSmelting",
         "order": 1
       },
-      "projectName": "keepsmelting",
+      "projectName": "KeepSmelting",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\dataRunProgramArgs.txt"
+        "@D:\\projects\\minecraft\\KeepSmelting\\build\\moddev\\dataRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\dataRunVmArgs.txt",
-        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+        "@D:\\projects\\minecraft\\KeepSmelting\\build\\moddev\\dataRunVmArgs.txt",
+        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\KeepSmelting\\bin\\main"
       ],
       "cwd": "${workspaceFolder}\\run",
       "env": {
-        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\KeepSmelting\\bin\\main"
       },
       "console": "internalConsole",
       "shortenCommandLine": "none"
@@ -78,21 +54,45 @@
       "request": "launch",
       "name": "GameTestServer",
       "presentation": {
-        "group": "Mod Development - keepsmelting",
+        "group": "Mod Development - KeepSmelting",
         "order": 2
       },
-      "projectName": "keepsmelting",
+      "projectName": "KeepSmelting",
       "mainClass": "net.neoforged.devlaunch.Main",
       "args": [
-        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\gameTestServerRunProgramArgs.txt"
+        "@D:\\projects\\minecraft\\KeepSmelting\\build\\moddev\\gameTestServerRunProgramArgs.txt"
       ],
       "vmArgs": [
-        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\gameTestServerRunVmArgs.txt",
-        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+        "@D:\\projects\\minecraft\\KeepSmelting\\build\\moddev\\gameTestServerRunVmArgs.txt",
+        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\KeepSmelting\\bin\\main"
       ],
       "cwd": "${workspaceFolder}\\run",
       "env": {
-        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\KeepSmelting\\bin\\main"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Server",
+      "presentation": {
+        "group": "Mod Development - KeepSmelting",
+        "order": 3
+      },
+      "projectName": "KeepSmelting",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\projects\\minecraft\\KeepSmelting\\build\\moddev\\serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\projects\\minecraft\\KeepSmelting\\build\\moddev\\serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\KeepSmelting\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {
+        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\KeepSmelting\\bin\\main"
       },
       "console": "internalConsole",
       "shortenCommandLine": "none"
