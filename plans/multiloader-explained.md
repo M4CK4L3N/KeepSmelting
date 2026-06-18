@@ -235,10 +235,83 @@ mod_version=1.0.0
 - `1.21` (с другими версиями зависимостей)
 - `1.21.1`
 
-## 9. Итог
+## 9. Критические замечания нейросети (подтверждаю)
+
+### 9.1 Чистота common-модуля
+
+> common не должен импортировать Forge или Fabric. Только чистый Java + Minecraft API (который общий для всех загрузчиков).
+
+✅ Подтверждаю. `common/` может импортировать:
+- `net.minecraft.world.level.block.entity.BlockEntity` — одинаков во всех загрузчиках
+- `net.minecraft.core.BlockPos`, `net.minecraft.world.level.Level` — одинаков
+
+❌ НЕ может импортировать:
+- `net.minecraftforge.common.ForgeHooks` — только в forge/
+- `net.minecraftforge.fml.common.Mod` — только в forge/
+- `net.fabricmc.api.ModInitializer` — только в fabric/
+
+**Связь common → платформа:** через интерфейсы или паттерн "фабрика/стратегия":
+
+```java
+// common/api/BurnTimeProvider.java — интерфейс в common
+public interface BurnTimeProvider {
+    int getBurnTime(ItemStack fuel, @Nullable RecipeType<?> recipeType);
+}
+
+// forge/internal/ForgeBurnTimeProvider.java — реализация в forge
+public class ForgeBurnTimeProvider implements BurnTimeProvider {
+    @Override
+    public int getBurnTime(ItemStack fuel, RecipeType<?> recipeType) {
+        return ForgeHooks.getBurnTime(fuel, recipeType);
+    }
+}
+
+// fabric/internal/FabricBurnTimeProvider.java — реализация в fabric
+public class FabricBurnTimeProvider implements BurnTimeProvider {
+    @Override
+    public int getBurnTime(ItemStack fuel, RecipeType<?> recipeType) {
+        return AbstractFurnaceBlockEntity.getBurnTime(
+            level.registryAccess(), recipe, fuel
+        );
+    }
+}
+```
+
+Платформенный модуль регистрирует реализацию при старте, common использует её через интерфейс.
+
+### 9.2 Iron Furnaces — изоляция в Forge-модуль
+
+Весь код Iron Furnaces должен быть **только** в `forge/src/main/java/`, не в `common/`.
+
+```
+forge/src/main/java/com/keepsmelting/
+├── ironfurnaces/
+│   ├── IronFurnaceCatchupHandler.java
+│   ├── IronFurnaceFurnaceMode.java
+│   ├── IronFurnaceFactoryMode.java
+│   ├── IronFurnaceGeneratorMode.java
+│   └── IronFurnaceNeighborHelper.java
+└── mixin/ironfurnaces/
+    ├── IronFurnaceAccessor.java
+    └── IronFurnaceTickMixin.java
+```
+
+`common/` **ничего не знает** про Iron Furnaces. Если собрать fabric — этой папки просто нет. Не нужно ни условной компиляции, ни `@Pseudo`/`defaultRequire: 0`.
+
+### 9.3 Выбор MultiLoader шаблона
+
+| Шаблон | Плюсы | Минусы |
+|---|---|---|
+| **Vanilla Gradle + submodules** (описан в этом документе) | Минимум магии. Работает. Понятно | Нет встроенной поддержки нескольких MC-версий |
+| **Architectury Loom** | Мультиверсионность встроена | Тяжёлый, много магии, Architectury API как доп. зависимость |
+| **Stonecutter** (от Kikugie) | Лёгкий, переключает MC-версию одной командой | Новый, мало документации |
+| **MultiLoader-Template** (neoforged) | Официальный шаблон NeoForge | Сложный, много церемоний |
+
+**Рекомендация:** начать с vanilla submodules (этот план). Если понадобится поддержка нескольких MC-версий — добавить Stonecutter.
+
+## 10. Итог
 
 | Вопрос | Ответ |
-|---|---|
 | Код для Forge и Fabric **общий**? | Весь catchup — да (common). Миксины и конфиг — нет (свои под каждую платформу). |
 | Как собрать? | `./gradlew build` — всё сразу. Или `:forge:build` / `:fabric:build` — отдельно. |
 | Сколько jar-файлов на выходе? | 1 на платформу: `forge/build/libs/keepsmelting-forge-1.0.0.jar` + `fabric/build/libs/keepsmelting-fabric-1.0.0.jar` |
