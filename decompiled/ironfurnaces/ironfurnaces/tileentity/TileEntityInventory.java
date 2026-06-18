@@ -195,3 +195,4 @@ Nameable {
         this.inventory.clear();
     }
 }
+

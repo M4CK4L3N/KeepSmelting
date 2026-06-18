@@ -441,3 +441,4 @@ implements EntityBlock {
         return p_151988_.f_46443_ ? null : BlockIronFurnaceBase.createTickerHelper(p_151989_, p_151990_, BlockIronFurnaceTileBase::tick);
     }
 }
+

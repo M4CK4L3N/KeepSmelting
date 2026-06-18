@@ -1,0 +1,101 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Client",
+      "presentation": {
+        "group": "Mod Development - firstmod",
+        "order": 0
+      },
+      "projectName": "firstmod",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {
+        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Data",
+      "presentation": {
+        "group": "Mod Development - firstmod",
+        "order": 1
+      },
+      "projectName": "firstmod",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\dataRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\dataRunVmArgs.txt",
+        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {
+        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "GameTestServer",
+      "presentation": {
+        "group": "Mod Development - firstmod",
+        "order": 2
+      },
+      "projectName": "firstmod",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\gameTestServerRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\gameTestServerRunVmArgs.txt",
+        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {
+        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Server",
+      "presentation": {
+        "group": "Mod Development - firstmod",
+        "order": 3
+      },
+      "projectName": "firstmod",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\projects\\minecraft\\firstmod\\build\\moddev\\serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003dkeepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {
+        "MOD_CLASSES": "keepsmelting%%D:\\projects\\minecraft\\firstmod\\bin\\main"
+      },
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    }
+  ]
+}

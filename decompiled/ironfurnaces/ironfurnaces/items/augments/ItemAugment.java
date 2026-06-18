@@ -1,0 +1,42 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  javax.annotation.Nullable
+ *  net.minecraft.ChatFormatting
+ *  net.minecraft.network.chat.Component
+ *  net.minecraft.network.chat.Style
+ *  net.minecraft.world.item.Item
+ *  net.minecraft.world.item.Item$Properties
+ *  net.minecraft.world.item.ItemStack
+ *  net.minecraft.world.item.TooltipFlag
+ *  net.minecraft.world.level.Level
+ *  net.minecraftforge.api.distmarker.Dist
+ *  net.minecraftforge.api.distmarker.OnlyIn
+ */
+package ironfurnaces.items.augments;
+
+import java.util.List;
+import javax.annotation.Nullable;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.level.Level;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+
+public class ItemAugment
+extends Item {
+    public ItemAugment(Item.Properties properties) {
+        super(properties);
+    }
+
+    @OnlyIn(value=Dist.CLIENT)
+    public void m_7373_(ItemStack stack, @Nullable Level worldIn, List<Component> tooltip, TooltipFlag flagIn) {
+        tooltip.add((Component)Component.m_237115_((String)"tooltip.ironfurnaces.augment_right_click").m_6270_(Style.f_131099_.m_131157_(ChatFormatting.GRAY)));
+    }
+}
+
