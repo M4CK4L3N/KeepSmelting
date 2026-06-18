@@ -19,14 +19,26 @@
 
 `util/CookResult.java` (3 строки) — нигде не используется.
 
+### 1.4 `com.example.examplemod` — стандартный MDK package
+
+Может конфликтовать с другими модами. Нужно сменить на уникальный.
+
+### 1.5 Только COMMON конфиг — это нормально
+
+Мод сервер-сайд (catchup выполняется на ServerLevel). CLIENT конфиг избыточен. `debugMode` — решение админа, не пер-плеер. Если мод помечен `side="SERVER"` в mods.toml — Forge автоматически не загружает COMMON конфиг на клиенте.
+
+### 1.6 `accesstransformer.cfg`
+
+Всего 1 строка — судя по коду миксинов нигде не используется.
+
 ---
 
 ## 2. Целевая структура
 
 ```
-src/main/java/com/example/examplemod/
+src/main/java/com/example/examplemod/          ← позже переименовать в com.keepsmelting
 ├── KeepSmelting.java                    — @Mod вход, инициализация
-├── KeepSmeltingConfig.java              — Конфиг (без изменений)
+├── KeepSmeltingConfig.java              — Конфиг (COMMON + CLIENT)
 │
 ├── api/                                 📦 API для других модов
 │   ├── IFurnaceCatchupHandler.java      — Интерфейс: что нужно реализовать
@@ -59,8 +71,8 @@ src/main/java/com/example/examplemod/
 │       ├── IronFurnaceAccessor.java        — Accessor (без изменений)
 │       └── IronFurnaceTickMixin.java       — ~60 строк: только HEAD inject
 │
-└── util/
-    └── CookResult.java                     — ❌ УДАЛИТЬ
+└── util/                                    ❌ УДАЛИТЬ
+    └── CookResult.java                     — unused
 ```
 
 ---
@@ -80,22 +92,8 @@ flowchart LR
 
 ```java
 public interface IFurnaceCatchupHandler {
-    /**
-     * @param tile     BlockEntity печки (кастуется модом)
-     * @param elapsed  тиков для симуляции
-     * @param level    ServerLevel
-     * @param pos      позиция печки
-     */
     void applyCatchup(BlockEntity tile, long elapsed, Level level, BlockPos pos);
-    
-    /**
-     * Сохранить время в NBT (вызывается из mixin saveAdditional)
-     */
     void saveTime(BlockEntity tile, CompoundTag tag);
-    
-    /**
-     * Загрузить время из NBT (вызывается из mixin load)
-     */
     void loadTime(BlockEntity tile, CompoundTag tag);
 }
 ```
@@ -104,11 +102,7 @@ public interface IFurnaceCatchupHandler {
 
 ```java
 public class CatchupHandlerRegistry {
-    // Mod author register:
-    public static void register(Class<? extends BlockEntity> tileClass, 
-                                IFurnaceCatchupHandler handler);
-    
-    // KeepSmelting internally calls:
+    public static void register(Class<? extends BlockEntity> tileClass, IFurnaceCatchupHandler handler);
     public static IFurnaceCatchupHandler find(Class<?> tileClass); // walks hierarchy
 }
 ```
@@ -126,7 +120,6 @@ public interface ICatchupTimeTracker {
 ### 3.4 Пример использования другим модом
 
 ```java
-// CustomFurnaceHandler.java — в своём моде
 public class CustomFurnaceHandler implements IFurnaceCatchupHandler {
     @Override
     public void applyCatchup(BlockEntity tile, long elapsed, Level level, BlockPos pos) {
@@ -135,7 +128,7 @@ public class CustomFurnaceHandler implements IFurnaceCatchupHandler {
     }
 }
 
-// В @Mod конструкторе:
+// В @Mod конструкторе другого мода:
 CatchupHandlerRegistry.register(CustomFurnaceTile.class, new CustomFurnaceHandler());
 ```
 
@@ -178,21 +171,19 @@ flowchart TD
 ### 4.2 Поток вызовов для Iron Furnaces
 
 ```
-IronFurnaceTickMixin.onTick()             ← @Inject(method = "tick", at = @At("HEAD"))
-  └─ CatchupHandlerRegistry.find(tile.getClass())
-       └─ IronFurnaceCatchupHandler (зарегистрирован в KeepSmelting.java)
-            ├─ check mode → IronFurnaceFurnaceMode.apply()
-            ├─ check mode → IronFurnaceFactoryMode.apply()
-            └─ check mode → IronFurnaceGeneratorMode.apply()
+IronFurnaceTickMixin.onTick()
+  -> CatchupHandlerRegistry.find(tile.getClass())
+    -> IronFurnaceCatchupHandler
+      -> FurnaceMode / FactoryMode / GeneratorMode
 ```
 
 ### 4.3 Поток вызовов для ванили
 
 ```
-FurnaceTickMixin.onTick()                 ← @Inject(method = "serverTick", at = @At("HEAD"))
-  └─ CatchupHandlerRegistry.find(furnace.getClass())
-       ├─ null → VanillaCatchupHandler.applyCatchup()   ← fallback для всех AbstractFurnaceBlockEntity
-       └─ не null → кастомный хендлер
+FurnaceTickMixin.onTick()
+  -> CatchupHandlerRegistry.find(furnace.getClass())
+    -> null -> VanillaCatchupHandler.applyCatchup()
+    -> not null -> custom handler
 ```
 
 ---
@@ -214,108 +205,60 @@ public abstract class AbstractCatchupHandler implements IFurnaceCatchupHandler {
     public long calcElapsedTicks(Level level, long last, long now) { ... }
     public void saveTime(BlockEntity tile, CompoundTag tag) { ... }
     public void loadTime(BlockEntity tile, CompoundTag tag) { ... }
-    public boolean shouldSkipTick(Level level) { ... } // client check + enabled config
+    public boolean shouldSkipTick(Level level) { ... }
 }
 ```
 
 ### 5.2 `internal/catchup/VanillaCatchupHandler.java`
 
-Переезжает из `FurnaceTickMixin`:
-- `applyFurnaceCatchup()` — основная логика ~150 строк
-- встраивает `VanillaHopperIO` для IO операций
+Переезжает из FurnaceTickMixin:
+- applyFurnaceCatchup() ~150 строк
+- встраивает VanillaHopperIO
 
 ### 5.3 `internal/catchup/VanillaHopperIO.java`
 
-Переезжает из `FurnaceTickMixin`:
-- `fillInputFromAbove()`
-- `pullFuelFromSides()`
-- `pushToBelow()`
-- `isSmeltable()`
-- `applyFuelTime()`
-- `applyCookTime()`
+Переезжает из FurnaceTickMixin:
+- fillInputFromAbove()
+- pullFuelFromSides()
+- pushToBelow()
+- isSmeltable()
+- applyFuelTime()
+- applyCookTime()
 
 ### 5.4 `internal/ironfurnaces/IronFurnaceCatchupHandler.java`
 
-Точка входа, зарегистрированная в реестре:
-```java
-public class IronFurnaceCatchupHandler extends AbstractCatchupHandler {
-    @Override
-    public void applyCatchup(BlockEntity tile, long elapsed, Level level, BlockPos pos) {
-        BlockIronFurnaceTileBase ift = (BlockIronFurnaceTileBase) tile;
-        if (ift.isFurnace()) {
-            IronFurnaceFurnaceMode.apply(ift, elapsed, level, pos);
-        } else if (ift.isFactory()) {
-            // trigger neighbor gen first
-            IronFurnaceNeighborHelper.processNeighborGenerators(...)
-            IronFurnaceFactoryMode.apply(ift, elapsed, level, pos);
-        } else if (ift.isGenerator()) {
-            IronFurnaceGeneratorMode.apply(ift, elapsed, level, pos);
-        }
-    }
-}
-```
+Точка входа, зарегистрированная в реестре. 3 режима.
 
 ### 5.5 `internal/ironfurnaces/IronFurnaceFurnaceMode.java`
 
-~100 строк — логика furnace-mode из текущего `applyFurnaceCatchup()`.
+~100 строк — furnace-mode логика.
 
 ### 5.6 `internal/ironfurnaces/IronFurnaceFactoryMode.java`
 
-~120 строк — логика factory-mode.
+~120 строк — factory-mode логика.
 
 ### 5.7 `internal/ironfurnaces/IronFurnaceGeneratorMode.java`
 
-~80 строк — логика generator-mode.
+~80 строк — generator-mode логика.
 
 ### 5.8 `internal/ironfurnaces/IronFurnaceNeighborHelper.java`
 
-~50 строк — `processNeighborGenerators()` + `pullAllRFFromNeighborGenerators()`.
+~50 строк — processNeighborGenerators() + pullAllRFFromNeighborGenerators().
 
 ### 5.9 `internal/registry/CatchupHandlerRegistry.java`
 
-~40 строк — `ConcurrentHashMap<Class<?>, IFurnaceCatchupHandler>` + `find()` с walk по суперклассам.
+~40 строк — ConcurrentHashMap + find() с walk по суперклассам.
 
 ### 5.10 `internal/debug/DebugOutput.java`
 
-~60 строк — `sendChatDebug()`, `sendToNearbyPlayers()` — общие для всех режимов.
+~60 строк — sendChatDebug(), sendToNearbyPlayers() — общие для всех режимов.
 
 ### 5.11 Миксины (тонкий слой)
 
-**`FurnaceTickMixin.java`** (~50 строк):
-```java
-@Mixin(AbstractFurnaceBlockEntity.class)
-public abstract class FurnaceTickMixin {
-    @Unique private long keepsmelting$lastRealTime;
-    @Unique private String keepsmelting$activeTimeMode;
-
-    @Inject(method = "saveAdditional", at = @At("TAIL"))
-    private void onSave(CompoundTag tag, CallbackInfo ci) { ... }
-
-    @Inject(method = "load", at = @At("TAIL"))
-    private void onLoad(CompoundTag tag, CallbackInfo ci) { ... }
-
-    @Inject(method = "serverTick", at = @At("HEAD"))
-    private static void onTick(Level world, BlockPos pos, BlockState state,
-                                AbstractFurnaceBlockEntity furnace, CallbackInfo ci) {
-        if (world.isClientSide) return;
-        if (!KeepSmeltingConfig.COMMON.catchupEnabled.get()) return;
-        
-        FurnaceTickMixin self = (FurnaceTickMixin)(Object) furnace;
-        
-        // calc elapsed
-        long elapsed = ...; // 15 строк calc-логики
-        
-        IFurnaceCatchupHandler handler = CatchupHandlerRegistry.find(furnace.getClass());
-        if (handler != null) {
-            handler.applyCatchup(furnace, elapsed, world, pos);
-        } else {
-            VanillaCatchupHandler.INSTANCE.applyCatchup(furnace, elapsed, world, pos);
-        }
-    }
-}
-```
-
-**`IronFurnaceTickMixin.java`** (~60 строк) — аналогично, но вызывает `IronFurnaceCatchupHandler`.
+После рефакторинга каждый миксин ~50-60 строк:
+- NBT save/load
+- calc elapsed ticks
+- registry lookup + delegate
 
 ---
 
@@ -326,14 +269,11 @@ public abstract class FurnaceTickMixin {
 public class KeepSmelting {
     public KeepSmelting() {
         KeepSmeltingConfig.register();
-
-        // Регистрация встроенных хендлеров
         CatchupHandlerRegistry.register(
             BlockIronFurnaceTileBase.class,
             new IronFurnaceCatchupHandler()
         );
-
-        // ... остальная инициализация
+        // ...
     }
 }
 ```
@@ -344,43 +284,159 @@ public class KeepSmelting {
 
 | Файл | Было | Стало |
 |---|---|---|
-| `FurnaceTickMixin.java` | 570 строк (всё) | ~50 строк (только inject) |
-| `IronFurnaceTickMixin.java` | 597 строк (всё) | ~60 строк (только inject) |
-| `CookResult.java` | 3 строки (unused) | ❌ удалён |
-| `KeepSmelting.java` | 37 строк | ~45 строк (добавлена регистрация) |
+| FurnaceTickMixin.java | 570 строк | ~50 строк |
+| IronFurnaceTickMixin.java | 597 строк | ~60 строк |
+| CookResult.java | 3 строки (unused) | УДАЛЁН |
+| KeepSmelting.java | 37 строк | ~45 строк (+регистрация) |
 | **Новые файлы** | — | **10 новых файлов** |
-
-```
-NEW FILES:
-api/
-├── IFurnaceCatchupHandler.java
-├── ICatchupTimeTracker.java
-└── CatchupHandlerRegistry.java       (duck: api + internal impl)
-
-internal/catchup/
-├── AbstractCatchupHandler.java
-├── VanillaCatchupHandler.java
-└── VanillaHopperIO.java
-
-internal/ironfurnaces/
-├── IronFurnaceCatchupHandler.java
-├── IronFurnaceFurnaceMode.java
-├── IronFurnaceFactoryMode.java
-├── IronFurnaceGeneratorMode.java
-└── IronFurnaceNeighborHelper.java
-
-internal/debug/
-└── DebugOutput.java
-```
 
 ---
 
 ## 8. Миграционный план
 
-1. Создать структуру папок `api/`, `internal/catchup/`, `internal/ironfurnaces/`, `internal/debug/`
+1. Создать структуру папок api/, internal/catchup/, internal/ironfurnaces/, internal/debug/
 2. Создать все новые файлы (сначала пустые классы)
 3. Скопировать логику из миксинов в хендлеры
 4. Уменьшить миксины до тонкого слоя
-5. Удалить `CookResult.java`
+5. Удалить CookResult.java
 6. Собрать, протестировать
 7. Написать документацию для других модов
+
+---
+
+## 9. Дополнительные проблемы в текущей кодовой базе
+
+### 9.1 com.example.examplemod — временный package name
+
+```
+mod_group_id=com.example.examplemod
+```
+
+Это стандартный шаблон Forge MDK. Нужно заменить на осмысленный, например com.keepsmelting или io.github.keepsmelting. Менять надо в:
+- gradle.properties
+- всех package декларациях
+- keepsmelting.mixins.json
+
+### 9.2 Нет CLIENT/SERVER конфигов
+
+Только COMMON. Forge позволяет 3 типа. debugMode можно в CLIENT.
+
+### 9.3 accesstransformer.cfg
+
+Всего 1 строка, нигде не используется. Возможно мёртвый код.
+
+### 9.4 gradle.properties — метаданные
+
+- mod_license=All Rights Reserved — лучше open-source
+- mod_version=1.0.0 — норм, SemVer
+- mod_authors=KeepSmelting — заменить на реального автора
+
+### 9.5 Нет CI/CD
+
+Нет GitHub Actions, нет автосборки.
+
+### 9.6 Кэширование конфига
+
+org.gradle.configuration-cache=true может ломаться при смене MC версий.
+
+---
+
+## 10. Стратегия портирования на разные версии MC и загрузчики
+
+### 10.1 Почему это сложно
+
+Текущая архитектура жёстко привязана к Forge:
+- Mixin plugin system (Forge-версия)
+- @Mixin(AbstractFurnaceBlockEntity.class) — меняется между версиями
+- @Mod, FMLJavaModLoadingContext — Forge-specific
+- ForgeConfigSpec — Forge-specific
+- ForgeHooks.getBurnTime() — меняется сигнатура
+- BlockIronFurnaceTileBase — только 1.20.1 Forge
+
+### 10.2 Рекомендуемая архитектура: Common + Platform
+
+```
+keepsmelting/
+  common/                  ← чистый Java, без MC-зависимостей
+    api/IFurnaceCatchupHandler.java
+    internal/catchup/
+      VanillaCatchupHandler.java
+      VanillaHopperIO.java
+  forge/                   ← Forge + NeoForge
+    KeepSmelting.java (@Mod)
+    KeepSmeltingConfig.java (ForgeConfigSpec)
+    mixin/
+  fabric/                  ← Fabric + Quilt
+    KeepSmelting.java (ModInitializer)
+    KeepSmeltingConfig.java (YACL / custom)
+    mixin/
+```
+
+Весь Minecraft-специфичный код — только в платформенных модулях.
+
+### 10.3 Варианты реализации
+
+| Метод | Сложность | Поддержка версий | Поддержка загрузчиков |
+|---|---|---|---|
+| 1. Ручные бранчи | Низкая | Cherry-pick ад | Любой |
+| 2. MultiLoader Template | Средняя | Новая ветка на версию | Forge+Fabric+Neo |
+| 3. Architectury Loom | Средняя | Обновлять маппинги | Forge+Fabric |
+| 4. Common как библиотека (jar) | Высокая | Подключается к любой | Любой |
+
+**Рекомендация:** начать с MultiLoader Template (вариант 2).
+
+### 10.4 Что меняется между версиями MC
+
+| Класс/метод | 1.20.1 | 1.21+ |
+|---|---|---|
+| AbstractFurnaceBlockEntity | Тот же класс | Тот же (пока) |
+| ForgeHooks.getBurnTime() | Статический | Через AbstractFurnaceBlockEntity |
+| RecipeType.SMELTING | SRG f_44108_ | Уже деобфусцирован |
+| ItemStack save/load | CompoundTag | DataComponent в 1.21.5+ |
+| System.currentTimeMillis() | Java SE | Не меняется |
+
+### 10.5 Iron Furnaces — проблема портирования
+
+Iron Furnaces существует только для Forge 1.20.1. На Fabric/Neo — отсутствует. ironfurnaces/ миксины просто исключаются из сборки (defaultRequire: 0).
+
+### 10.6 CI/CD для мульти-загрузчика
+
+```yaml
+strategy:
+  matrix:
+    loader: [forge, fabric, neoforge]
+    mc_version: [1.20.1, 1.21, 1.21.1]
+steps:
+  - run: ./gradlew :${{ matrix.loader }}:build
+```
+
+---
+
+## 11. Итоговый список задач
+
+### Фаза 1: Быстрые фиксы (1-2 дня)
+- [ ] Переименовать com.example.examplemod -> com.keepsmelting
+- [ ] Удалить CookResult.java
+- [ ] Проверить и удалить accesstransformer.cfg
+- [ ] Обновить gradle.properties (лицензия, автор)
+
+### Фаза 2: Рефакторинг архитектуры (3-5 дней)
+- [ ] Создать api/ и internal/ структуру
+- [ ] Вынести логику из FurnaceTickMixin в VanillaCatchupHandler
+- [ ] Вынести логику из IronFurnaceTickMixin в режимные хендлеры
+- [ ] Уменьшить миксины до ~50 строк
+- [ ] Собрать, протестировать
+
+### Фаза 3: API для модов (2-3 дня)
+- [ ] Реализовать IFurnaceCatchupHandler
+- [ ] Реализовать CatchupHandlerRegistry
+- [ ] Сделать документацию / README
+- [ ] Опубликовать API jar
+
+### Фаза 4: Мульти-загрузчик (1-2 недели)
+- [ ] Перейти на MultiLoader Template
+- [ ] Выделить common-модуль
+- [ ] Сделать Forge-платформу
+- [ ] Сделать Fabric-платформу
+- [ ] Настроить CI/CD
+- [ ] Опубликовать на Modrinth + CurseForge
