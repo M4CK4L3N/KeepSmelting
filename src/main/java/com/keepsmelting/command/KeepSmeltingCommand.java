@@ -1,7 +1,7 @@
-package com.example.examplemod.command;
+package com.keepsmelting.command;
 
-import com.example.examplemod.KeepSmeltingConfig;
-import com.example.examplemod.KeepSmeltingConfig.DebugMode;
+import com.keepsmelting.KeepSmeltingConfig;
+import com.keepsmelting.KeepSmeltingConfig.DebugMode;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -28,38 +28,31 @@ public class KeepSmeltingCommand {
         dispatcher.register(Commands.literal("keepsmelting")
                 .requires(src -> src.hasPermission(2))
 
-                // /keepsmelting catchup <true|false>
                 .then(Commands.literal("catchup")
                         .then(Commands.argument("value", BoolArgumentType.bool())
                                 .executes(ctx -> setCatchup(ctx, BoolArgumentType.getBool(ctx, "value")))))
 
-                // /keepsmelting debug <OFF|CHAT|LOG>
                 .then(Commands.literal("debug")
                         .then(Commands.argument("mode", StringArgumentType.word())
                                 .suggests(DEBUG_SUGGESTIONS)
                                 .executes(ctx -> setDebugMode(ctx, StringArgumentType.getString(ctx, "mode")))))
 
-                // /keepsmelting time <REALTIME|GAMETIME>
                 .then(Commands.literal("time")
                         .then(Commands.argument("mode", StringArgumentType.word())
                                 .suggests(TIME_SUGGESTIONS)
                                 .executes(ctx -> setTimeMode(ctx, StringArgumentType.getString(ctx, "mode")))))
 
-                // /keepsmelting maxTicks <1-192000>
                 .then(Commands.literal("maxTicks")
                         .then(Commands.argument("value", LongArgumentType.longArg(1, 192000))
                                 .executes(ctx -> setMaxTicks(ctx, LongArgumentType.getLong(ctx, "value")))))
 
-                // /keepsmelting minDelta <1-72000>
                 .then(Commands.literal("minDelta")
                         .then(Commands.argument("value", IntegerArgumentType.integer(1, 72000))
                                 .executes(ctx -> setMinDelta(ctx, IntegerArgumentType.getInteger(ctx, "value")))))
 
-                // /keepsmelting status
                 .then(Commands.literal("status")
                         .executes(KeepSmeltingCommand::showStatus))
 
-                // /keepsmelting — show help
                 .executes(KeepSmeltingCommand::showHelp)
         );
     }

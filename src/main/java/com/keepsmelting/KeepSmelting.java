@@ -1,6 +1,6 @@
-package com.example.examplemod;
+package com.keepsmelting;
 
-import com.example.examplemod.command.KeepSmeltingCommand;
+import com.keepsmelting.command.KeepSmeltingCommand;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;

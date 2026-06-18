@@ -1,4 +1,4 @@
-package com.example.examplemod.mixin.ironfurnaces;
+package com.keepsmelting.mixin.ironfurnaces;
 
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.AbstractCookingRecipe;
@@ -10,10 +10,6 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 import javax.annotation.Nullable;
 import java.util.Optional;
 
-/**
- * Invoker mixin for BlockIronFurnaceTileBase.
- * String target + @Pseudo — safely skipped if ironfurnaces absent.
- */
 @Pseudo
 @Mixin(targets = "ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase")
 public interface IronFurnaceAccessor {
@@ -30,8 +26,6 @@ public interface IronFurnaceAccessor {
     @Invoker(value = "canSmelt", remap = false)
     boolean invokeCanSmelt(@Nullable Recipe<?> recipe);
 
-    // ── Factory ──
-
     @Invoker(value = "factorySmelt", remap = false)
     void invokeFactorySmelt(@Nullable Recipe<?> recipe, int slot);
 
@@ -43,8 +37,6 @@ public interface IronFurnaceAccessor {
 
     @Invoker(value = "getFactoryCookTime", remap = false)
     int invokeGetFactoryCookTime(int slot);
-
-    // ── AutoIO ──
 
     @Invoker(value = "autoIO", remap = false)
     void invokeAutoIO();

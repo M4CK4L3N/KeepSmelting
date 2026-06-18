@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package com.keepsmelting;
 
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.fml.ModLoadingContext;

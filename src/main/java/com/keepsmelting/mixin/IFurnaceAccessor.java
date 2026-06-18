@@ -1,4 +1,4 @@
-package com.example.examplemod.mixin;
+package com.keepsmelting.mixin;
 
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.RegistryAccess;
@@ -11,11 +11,6 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 
 import javax.annotation.Nullable;
 
-/**
- * Accessor + Invoker mixin that opens private fields/methods
- * of AbstractFurnaceBlockEntity so FurnaceTickMixin can manipulate
- * cooking progress, fuel time, etc.
- */
 @Mixin(AbstractFurnaceBlockEntity.class)
 public interface IFurnaceAccessor {
 
