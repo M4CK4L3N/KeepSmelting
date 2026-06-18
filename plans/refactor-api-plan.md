@@ -421,22 +421,21 @@ steps:
 - [x] Удалить accesstransformer.cfg
 - [x] Обновить gradle.properties
 
-### Фаза 0: Оптимизация Iron Furnaces catchup (сейчас)
-- [ ] Factory Mode: переписать на адаптивный batch (O(elapsed×6) → O(events))
-- [ ] Generator Mode: переписать на batch (низкий приоритет)
+### Фаза 0: Оптимизация Iron Furnaces catchup
+- [x] Factory Mode: переписать на адаптивный batch (O(elapsed×6) → O(events))
+- [x] Generator Mode: переписать на batch
 
-### Фаза 2: Рефакторинг архитектуры (3-5 дней)
-- [ ] Создать api/ и internal/ структуру
-- [ ] Вынести логику из FurnaceTickMixin в VanillaCatchupHandler
-- [ ] Вынести логику из IronFurnaceTickMixin в режимные хендлеры
-- [ ] Уменьшить миксины до ~50 строк
-- [ ] Собрать, протестировать
+### Фаза 2: Рефакторинг архитектуры
+- [x] Создать api/ и internal/ структуру
+- [x] Вынести логику из FurnaceTickMixin в VanillaCatchupHandler
+- [x] Вынести логику из IronFurnaceTickMixin в режимные хендлеры
+- [x] Уменьшить миксины до ~50 строк
+- [x] Собрать, протестировать
 
-### Фаза 3: API для модов (2-3 дня)
-- [ ] Реализовать IFurnaceCatchupHandler
-- [ ] Реализовать CatchupHandlerRegistry
-- [ ] Сделать документацию / README
-- [ ] Опубликовать API jar
+### Фаза 3: API для модов
+- [x] Реализовать IFurnaceCatchupHandler
+- [x] Реализовать CatchupHandlerRegistry
+- [x] Сделать документацию / README
 
 ### Фаза 4: Мульти-загрузчик (1-2 недели)
 - [ ] Перейти на MultiLoader Template
