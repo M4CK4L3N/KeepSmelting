@@ -6,16 +6,17 @@
 ## Общая концепция
 
 ```
-ФАЗА 1 (сейчас):   1.20.1 Forge       ← реструктуризация текущего проекта
+ФАЗА 1 (сейчас):   1.20.1 Forge              ← реструктуризация текущего проекта
                       ↓
-ФАЗА 2 (скоро):    1.20.1 Forge + Fabric     ← multi-loader в modern/
-                   1.21 Forge/NeoForge + Fabric  ← Stonecutter
-                   1.21.4 Forge/NeoForge + Fabric ← Stonecutter
+ФАЗА 2 (скоро):    modern/ (Stonecutter, JDK 25)
+                    ├── 1.20.1-forge + 1.20.1-fabric
+                    ├── 1.21-forge + 1.21-fabric
+                    └── 1.21.4-forge + 1.21.4-fabric
                       ↓
 ФАЗА 3 (опционально):
-                   1.16.5 Forge  ← отдельный legacy-проект
-                   1.12.2 Forge  ← отдельный legacy-проект
-                   1.7.10 Forge  ← отдельный legacy-проект
+                    legacy-1.16.5/ (Forge + Fabric)
+                    legacy-1.12.2/ (Forge + Fabric Legacy)
+                    legacy-1.7.10/ (Forge + Fabric Legacy)
 ```
 
 ## Принцип: как код переиспользуется между проектами
@@ -26,12 +27,12 @@ modern/common/src/main/java/com/keepsmelting/
 ├── internal/
 └── mixin/
 
-modern/forge/                 ← подключает modern/common через Gradle sourceSet
-modern/fabric/                ← подключает modern/common через Gradle sourceSet
+modern/versions/*/forge/      ← подключает modern/common через Gradle sourceSet
+modern/versions/*/fabric/     ← подключает modern/common через Gradle sourceSet
 
-legacy-1.16.5/                ← подключает modern/common через srcDirs +=
-legacy-1.12.2/                ← подключает modern/common через srcDirs +=
-legacy-1.7.10/                ← подключает modern/common через srcDirs +=
+legacy-1.16.5/forge/          ← подключает modern/common через srcDirs +=
+legacy-1.16.5/fabric/         ← подключает modern/common через srcDirs +=
+legacy-1.12.2/forge/          ← подключает modern/common через srcDirs +=
 ```
 
 **Никаких Junction. Никакой `shared/`. Файлы лежат только в `modern/common/`.**
@@ -75,16 +76,12 @@ keepsmelting/                          ← корень Git-репозитори
 │   │           ├── IFurnaceAccessor.java
 │   │           └── FurnaceTickMixin.java
 │   │
-│   ├── forge/                         ← 🟠 Forge-специфичный код
+│   ├── forge/                         ← 🟠 Forge-специфичный код (временно, до Stonecutter)
 │   │   └── src/main/java/com/keepsmelting/
 │   │       ├── KeepSmelting.java
 │   │       ├── KeepSmeltingConfig.java
 │   │       └── command/
 │   │           └── KeepSmeltingCommand.java
-│   │
-│   ├── fabric/                        ← 🟡 пока пусто (Фаза 2)
-│   │   └── src/main/java/com/keepsmelting/
-│   │       └── (пусто)
 │   │
 │   └── libs/
 │       └── ironfurnaces-1.20.1-4.1.8.jar
@@ -167,49 +164,45 @@ jar {
     manifest.attributes(["MixinConfigs": "${mod_id}.mixins.json"])
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
-
-// templates, publishing, idea — как в текущем build.gradle
 ```
 
-### Шаг 1.3: `modern/settings.gradle`
+### Шаг 1.3: Перенести файлы
 
-```gradle
-plugins {
-    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.9.0'
-}
+**Из `src/main/java/com/keepsmelting/` в `modern/common/...`:**
 
-rootProject.name = 'keepsmelting-modern'
-```
+| Файл | Новый путь |
+|---|---|
+| `api/IFurnaceCatchupHandler.java` | `modern/common/src/main/java/com/keepsmelting/api/` |
+| `api/CatchupHandlerRegistry.java` | `modern/common/src/main/java/com/keepsmelting/api/` |
+| `internal/catchup/AbstractCatchupHandler.java` | `modern/common/src/main/java/.../internal/catchup/` |
+| `internal/catchup/VanillaCatchupHandler.java` | `modern/common/src/main/java/.../internal/catchup/` |
+| `internal/catchup/VanillaHopperIO.java` | `modern/common/src/main/java/.../internal/catchup/` |
+| `internal/ironfurnaces/FurnaceMode.java` | `modern/common/src/main/java/.../internal/ironfurnaces/` |
+| `internal/ironfurnaces/FactoryMode.java` | `modern/common/src/main/java/.../internal/ironfurnaces/` |
+| `internal/ironfurnaces/GeneratorMode.java` | `modern/common/src/main/java/.../internal/ironfurnaces/` |
+| `internal/ironfurnaces/IronFurnaceCatchupHandler.java` | `modern/common/src/main/java/.../internal/ironfurnaces/` |
+| `mixin/IFurnaceAccessor.java` | `modern/common/src/main/java/com/keepsmelting/mixin/` |
+| `mixin/FurnaceTickMixin.java` | `modern/common/src/main/java/com/keepsmelting/mixin/` |
 
-### Шаг 1.4: `modern/gradle.properties`
+**Из `src/main/java/com/keepsmelting/` в `modern/forge/...`:**
 
-Скопировать из текущего `gradle.properties`.
+| Файл | Новый путь |
+|---|---|
+| `KeepSmelting.java` | `modern/forge/src/main/java/com/keepsmelting/` |
+| `KeepSmeltingConfig.java` | `modern/forge/src/main/java/com/keepsmelting/` |
+| `command/KeepSmeltingCommand.java` | `modern/forge/src/main/java/com/keepsmelting/command/` |
+| `mixin/ironfurnaces/IronFurnaceAccessor.java` | `modern/forge/src/main/java/.../mixin/ironfurnaces/` |
 
-### Шаг 1.5: Перенести ресурсы и templates
+**Ресурсы:**
 
-```
-modern/forge/src/main/resources/
-├── META-INF/
-│   └── accesstransformer.cfg    ← из src/main/resources/META-INF/
-├── keepsmelting.mixins.json     ← из src/main/resources/
-└── pack.mcmeta                  ← из src/main/templates/pack.mcmeta → скопировать
+| Файл | Новый путь |
+|---|---|
+| `keepsmelting.mixins.json` | `modern/forge/src/main/resources/` |
+| `META-INF/accesstransformer.cfg` | `modern/forge/src/main/resources/META-INF/` |
+| `templates/META-INF/mods.toml` | `modern/forge/src/main/templates/META-INF/` |
+| `templates/pack.mcmeta` | `modern/forge/src/main/resources/` |
 
-modern/forge/src/main/templates/
-└── META-INF/
-    └── mods.toml                ← из src/main/templates/META-INF/
-```
-
-### Шаг 1.6: Перенести `gradlew` + `gradlew.bat` + `gradle/wrapper/`
-
-```powershell
-# скопировать gradle wrapper из текущего корня в modern/
-copy ..\gradlew .\
-copy ..\gradlew.bat .\
-copy ..\gradle\wrapper\gradle-wrapper.properties .\gradle\wrapper\
-copy ..\gradle\wrapper\gradle-wrapper.jar .\gradle\wrapper\
-```
-
-### Шаг 1.7: Проверка
+### Шаг 1.4: Проверка
 
 ```powershell
 cd modern
@@ -218,22 +211,19 @@ cd modern
 .\gradlew runClient
 ```
 
-**Критерий готовности Фазы 1:** Мод собирается и работает как раньше. Код лежит в `modern/common/` + `modern/forge/`.
+**Критерий готовности Фазы 1:** Мод собирается и работает как раньше. Код в новой структуре.
 
 ---
 
-## ФАЗА 2: Multi-loader + Multi-version (Stonecutter)
+## ФАЗА 2: Multi-loader + Multi-version (Stonecutter, MC ≥ 1.17)
 
-**Цель:** Добавить Fabric + поддержку нескольких MC-версий.
+**Цель:** Один проект `modern/` собирает Forge + Fabric для 1.17+.
 
 ### Шаг 2.1: Установить JDK 25
 
 ```powershell
 # Скачать Temurin JDK 25 MSI с https://adoptium.net
-# Установить
-# Проверить
-java -version
-# → openjdk version "25" ...
+java -version  # → openjdk version "25" ...
 ```
 
 ### Шаг 2.2: Обновить Gradle до 9.1+
@@ -252,9 +242,10 @@ plugins {
 }
 ```
 
-### Шаг 2.4: Добавить Stonecutter в `modern/settings.gradle`
+### Шаг 2.4: Добавить Stonecutter
 
 ```gradle
+// modern/settings.gradle
 plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '0.9.0'
     id 'stonecutter' version '0.9.6'
@@ -262,49 +253,58 @@ plugins {
 
 stonecutter {
     create(rootProject) {
-        versions("1.20.1-forge") // пока только одна
-        vcs("1.20.1-forge")
-        // позже: versions("1.20.1-forge", "1.20.1-fabric", "1.21-forge", "1.21-fabric")
+        versions(
+            "1.20.1-forge",
+            "1.20.1-fabric",
+            "1.21-forge",
+            "1.21-fabric"
+        )
+        vcs("1.20.1-forge", "1.20.1-fabric")
     }
 }
 
 rootProject.name = 'keepsmelting-modern'
 ```
 
-### Шаг 2.5: Реструктурировать под Stonecutter с multi-loader
+### Шаг 2.5: Структура modern/ под Stonecutter
 
 ```
 modern/
 ├── settings.gradle
-├── build.gradle
-├── stonecutter.gradle.kts
+├── build.gradle                 ← общие настройки (java, publishing)
+├── stonecutter.gradle.kts       ← конфиг Stonecutter
 │
-├── common/                      ← ☑️ core-код (api + internal + общие миксины)
+├── common/                      ← ☑️ core-код (НЕ меняется)
 │   └── src/main/java/com/keepsmelting/
 │       ├── api/
 │       ├── internal/
 │       └── mixin/
 │
 ├── versions/
-│   └── 1.20.1-forge/            ← Forge 1.20.1
-│       ├── build.gradle
-│       └── src/main/java/com/keepsmelting/
-│           ├── KeepSmelting.java    ← @Mod
-│           ├── KeepSmeltingConfig.java
-│           └── command/
-│
-├── versions/
-│   └── 1.20.1-fabric/           ← Fabric 1.20.1
-│       ├── build.gradle
-│       └── src/main/java/com/keepsmelting/
-│           ├── KeepSmelting.java    ← ModInitializer
-│           ├── KeepSmeltingConfig.java
-│           └── command/
+│   ├── 1.20.1-forge/
+│   │   ├── build.gradle
+│   │   └── src/main/java/com/keepsmelting/
+│   │       ├── KeepSmelting.java       ← @Mod
+│   │       ├── KeepSmeltingConfig.java ← ForgeConfigSpec
+│   │       └── command/
+│   │
+│   ├── 1.20.1-fabric/
+│   │   ├── build.gradle
+│   │   └── src/main/java/com/keepsmelting/
+│   │       ├── KeepSmelting.java       ← ModInitializer
+│   │       └── KeepSmeltingConfig.java ← Fabric Config API
+│   │
+│   ├── 1.21-forge/
+│   │   └── ...
+│   │
+│   └── 1.21-fabric/
+│       └── ...
 │
 └── libs/
+    └── ironfurnaces-1.20.1-4.1.8.jar
 ```
 
-### Шаг 2.6: `versions/1.20.1-forge/build.gradle`
+### Шаг 2.6: Forge-версия `versions/1.20.1-forge/build.gradle`
 
 ```gradle
 plugins {
@@ -320,14 +320,14 @@ java {
 legacyForge {
     version = "1.20.1-47.4.10"
     runs {
-        client { client() }
-        server { server() }
+        client { ideName = "Forge 1.20.1 Client" }
+        server { ideName = "Forge 1.20.1 Server" }
     }
 }
 
 sourceSets.main.java.srcDirs = [
-    '../../common/src/main/java',   // ☑️ core-код из общей папки
-    'src/main/java'                 // 🟠 Forge-специфичный код
+    '../../common/src/main/java',  // ☑️ core-код
+    'src/main/java'                // 🟠 Forge-код
 ]
 
 dependencies {
@@ -340,7 +340,7 @@ mixin {
 }
 ```
 
-### Шаг 2.7: `versions/1.20.1-fabric/build.gradle`
+### Шаг 2.7: Fabric-версия `versions/1.20.1-fabric/build.gradle`
 
 ```gradle
 plugins {
@@ -353,8 +353,8 @@ java {
 }
 
 sourceSets.main.java.srcDirs = [
-    '../../common/src/main/java',   // ☑️ core-код из общей папки
-    'src/main/java'                 // 🟡 Fabric-специфичный код
+    '../../common/src/main/java',  // ☑️ core-код
+    'src/main/java'                // 🟡 Fabric-код
 ]
 
 dependencies {
@@ -363,9 +363,36 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:0.15.11"
     modImplementation "net.fabricmc.fabric-api:fabric-api:0.92.0+1.20.1"
 }
+
+loom {
+    mixin.defaultRefmapName = "keepsmelting.refmap.json"
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
 ```
 
-### Шаг 2.8: BurnTimeProvider — абстракция для multi-loader
+### Шаг 2.8: Что различается между Forge и Fabric
+
+| Аспект | Forge | Fabric |
+|---|---|---|
+| **Entry point** | `@Mod("keepsmelting")` class | `ModInitializer` class |
+| **Конфиг** | `ForgeConfigSpec` + `@Config` | Fabric Config API или YACL |
+| **Burn time API** | `ForgeHooks.getBurnTime(fuel, recipeType)` | `AbstractFurnaceBlockEntity.getBurnTime(registryAccess, recipeType, fuel)` |
+| **Регистрация команд** | `RegisterCommandsEvent` | `CommandRegistrationCallback.EVENT.register(...)` |
+| **Мод-описатель** | `META-INF/mods.toml` | `fabric.mod.json` |
+| **Iron Furnaces** | ✅ Поддерживается миксинами | ❌ Не существует на Fabric |
+| **Dependencies** | `compileOnly ironfurnaces.jar` | Нет ironfurnaces |
+
+**Iron Furnaces работает только на Forge.** Fabric-сборка просто не включает `ironfurnaces/` миксины.
+
+### Шаг 2.9: BurnTimeProvider — абстракция между loader'ами
+
+Чтобы core-код в `common/` не зависел от `ForgeHooks`:
 
 ```java
 // modern/common/src/main/java/com/keepsmelting/api/BurnTimeProvider.java
@@ -375,49 +402,82 @@ public interface BurnTimeProvider {
 }
 ```
 
+Регистрация при старте мода:
+
 ```java
-// forge/ — внутри VanillaCatchupHandler использует ForgeHooks
-// fabric/ — внутри VanillaCatchupHandler использует AbstractFurnaceBlockEntity
+// forge/.../KeepSmelting.java — Forge
+@Mod("keepsmelting")
+public class KeepSmelting {
+    public KeepSmelting() {
+        CatchupHandlerRegistry.setBurnTimeProvider((fuel, recipeType) ->
+            ForgeHooks.getBurnTime(fuel, recipeType));
+    }
+}
 ```
 
-### Шаг 2.9: Добавить новые MC-версии
+```java
+// fabric/.../KeepSmelting.java — Fabric
+public class KeepSmelting implements ModInitializer {
+    @Override
+    public void onInitialize() {
+        CatchupHandlerRegistry.setBurnTimeProvider((fuel, recipeType) ->
+            AbstractFurnaceBlockEntity.getBurnTime(
+                MinecraftServer.getServer().registryAccess(),
+                recipeType, fuel  // Fabric: recipe != null ? recipe.value() : null
+            ));
+    }
+}
+```
+
+### Шаг 2.10: Добавить новые MC-версии
 
 Просто создать новую папку в `versions/`:
 
 ```
 versions/
-├── 1.20.1-forge/
-├── 1.20.1-fabric/
-├── 1.21-forge/
-├── 1.21-fabric/
-└── 1.21.4-forge/
-    └── 1.21.4-fabric/
+├── 1.20.1-forge/      (--release 17)
+├── 1.20.1-fabric/     (--release 17)
+├── 1.21-forge/        (--release 21)
+├── 1.21-fabric/       (--release 21)
+├── 1.21.4-forge/      (--release 25)
+└── 1.21.4-fabric/     (--release 25)
 ```
 
-Каждый новый `build.gradle` подключает `../../common/src/main/java` и указывает свой `--release` флаг.
+Каждый `build.gradle` подключает `../../common/src/main/java` и указывает свой `--release`.
 
 ---
 
 ## ФАЗА 3: Legacy-версии (опционально)
 
-**Цель:** Добавить поддержку старых версий Minecraft.
+**Цель:** Добавить поддержку старых версий Minecraft (Forge + где возможно Fabric).
+
+### Какие loader'ы доступны для старых версий
+
+| Версия | Forge | Fabric | Примечание |
+|---|---|---|---|
+| **1.16.5** | ✅ Forge 36.2 | ✅ Fabric (Fabric Loom 0.x) | Fabric работает нормально |
+| **1.12.2** | ✅ Forge 14.23 | ⚠️ [Fabric Legacy](https://legacy-fabric.github.io/) | Отдельный fabric-loom, меньше API |
+| **1.7.10** | ✅ Forge 10.13 | ⚠️ Fabric Legacy | Очень мало API, чистый Minecraft |
+
+**Fabric Legacy** — форк Fabric для версий 1.12.2 и ниже. Работает, но:
+- Меньше модулей Fabric API
+- Нет garantii совместимости со всеми модами
+- `fabric.mod.json` — тот же формат
 
 ### Принцип: как legacy подключает core-код
 
 ```gradle
-// legacy-1.12.2/build.gradle
 sourceSets.main.java.srcDirs += '../modern/common/src/main/java'
 ```
 
-**Одна строка.** Gradle сам подхватывает файлы из `modern/common/`.
-Никаких Junction, никакой `shared/`.
+**Одна строка.** Gradle подхватывает файлы из `modern/common/`.
 
 **Проблема:** Java 8 не понимает Java 17 синтаксис.
 **Решение:** Писать core-код в Java 8 compatible стиле:
 
 ```java
 // ✅ Java 8 compatible — никаких records, var, switch expressions
-public class CatchupResult {
+public final class CatchupResult {
     private final long itemsCooked;
     private final long fuelUsed;
     
@@ -431,7 +491,7 @@ public class CatchupResult {
 }
 ```
 
-### Шаг 3.1: `legacy-1.16.5/build.gradle`
+### Шаг 3.1: `legacy-1.16.5/forge/build.gradle`
 
 ```gradle
 buildscript {
@@ -455,11 +515,32 @@ dependencies {
     minecraft 'net.minecraftforge:forge:1.16.5-36.2.39'
 }
 
-// ☑️ core-код из modern/common — одна строка
-sourceSets.main.java.srcDirs += '../modern/common/src/main/java'
+sourceSets.main.java.srcDirs += '../../modern/common/src/main/java'
 ```
 
-### Шаг 3.2: `legacy-1.12.2/build.gradle`
+### Шаг 3.2: `legacy-1.16.5/fabric/build.gradle`
+
+```gradle
+plugins {
+    id 'fabric-loom' version '0.12.+'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:1.16.5"
+    mappings "net.fabricmc:yarn:1.16.5+build.10:v2"
+    modImplementation "net.fabricmc:fabric-loader:0.14.22"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:0.46.6+1.16.5"
+}
+
+sourceSets.main.java.srcDirs += '../../modern/common/src/main/java'
+```
+
+### Шаг 3.3: `legacy-1.12.2/forge/build.gradle`
 
 ```gradle
 buildscript {
@@ -481,11 +562,34 @@ minecraft {
     mappings = "stable_39"
 }
 
-// ☑️ core-код из modern/common — одна строка
-sourceSets.main.java.srcDirs += '../modern/common/src/main/java'
+sourceSets.main.java.srcDirs += '../../modern/common/src/main/java'
 ```
 
-### Шаг 3.3: `legacy-1.7.10/build.gradle`
+### Шаг 3.4: `legacy-1.12.2/fabric/build.gradle`
+
+```gradle
+plugins {
+    id 'fabric-loom' version '1.0-SNAPSHOT' apply false
+    // Используется Legacy Fabric: https://legacy-fabric.github.io/
+}
+
+// Fabric для 1.12.2 через Legacy Fabric Maven
+repositories {
+    maven { url = 'https://maven.legacyfabric.net/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:1.12.2"
+    mappings "net.fabricmc:yarn:1.12.2+build.202102222318:v2"
+    modImplementation "net.fabricmc:fabric-loader:0.14.22"
+    // Legacy Fabric API — ограниченный набор
+    modImplementation "net.legacyfabric:fabric-api:0.3.0+1.12.2"
+}
+
+sourceSets.main.java.srcDirs += '../../modern/common/src/main/java'
+```
+
+### Шаг 3.5: `legacy-1.7.10/forge/build.gradle`
 
 ```gradle
 buildscript {
@@ -503,9 +607,72 @@ minecraft {
     version = "1.7.10-10.13.4.1614-1.7.10"
 }
 
-// ☑️ core-код из modern/common — одна строка
-sourceSets.main.java.srcDirs += '../modern/common/src/main/java'
+sourceSets.main.java.srcDirs += '../../modern/common/src/main/java'
 ```
+
+### Шаг 3.6: `legacy-1.7.10/fabric/build.gradle`
+
+```gradle
+plugins {
+    id 'fabric-loom' version '1.0-SNAPSHOT' apply false
+}
+
+repositories {
+    maven { url = 'https://maven.legacyfabric.net/' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:1.7.10"
+    mappings "net.fabricmc:yarn:1.7.10+build.202102222318:v2"
+    modImplementation "net.fabricmc:fabric-loader:0.14.22"
+    // Legacy Fabric API для 1.7.10 — минимальный
+}
+
+sourceSets.main.java.srcDirs += '../../modern/common/src/main/java'
+```
+
+### Шаг 3.7: Общая структура legacy после Фазы 3
+
+```
+legacy-1.16.5/
+├── forge/
+│   ├── build.gradle
+│   └── src/main/java/com/keepsmelting/
+│       ├── KeepSmelting.java       ← Forge entry point
+│       ├── KeepSmeltingConfig.java ← Forge config
+│       └── mixin/
+├── fabric/
+│   ├── build.gradle
+│   └── src/main/java/com/keepsmelting/
+│       ├── KeepSmelting.java       ← Fabric entry point
+│       ├── KeepSmeltingConfig.java
+│       └── mixin/
+├── settings.gradle
+├── gradlew
+└── gradle/wrapper/
+
+legacy-1.12.2/           ← та же структура
+legacy-1.7.10/           ← та же структура
+```
+
+---
+
+## Полная карта: что компилирует core-код
+
+```
+modern/common/src/main/java/  ← ☑️ ИСТИННЫЙ ИСТОЧНИК (Java 8 compatible)
+  │
+  ├── modern/versions/1.20.1-forge/     (--release 17)
+  ├── modern/versions/1.20.1-fabric/    (--release 17)
+  ├── modern/versions/1.21-forge/       (--release 21)
+  ├── modern/versions/1.21-fabric/      (--release 21)
+  ├── legacy-1.16.5/forge/              (Java 8)
+  ├── legacy-1.16.5/fabric/             (Java 8)
+  ├── legacy-1.12.2/forge/              (Java 8)
+  └── legacy-1.12.2/fabric/             (Java 8)
+```
+
+Все подключают `modern/common/` через `srcDirs +=`. Изменяете core-код — пересобираете любой проект.
 
 ---
 
@@ -513,43 +680,18 @@ sourceSets.main.java.srcDirs += '../modern/common/src/main/java'
 
 ```
 ФАЗА 1 — 1.20.1 Forge                   ⬅️ НАЧАТЬ СЕГОДНЯ
-  ├── modern/common/ + modern/forge/     ✅
-  ├── сборка работает                    ✅
-  └── запуск клиента работает            ✅
+  ├── modern/common/ + modern/forge/
+  ├── сборка работает
+  └── запуск клиента работает
 
 ФАЗА 2 — Multi-loader + Multi-version   ⬅️ ПОТОМ
   ├── JDK 25 + Gradle 9.1
   ├── Stonecutter
-  ├── Fabric поддержка
-  └── Новые MC-версии
+  ├── Fabric поддержка (1.20.1)
+  └── Новые MC-версии (1.21, 1.21.4)
 
 ФАЗА 3 — Legacy                         ⬅️ ОПЦИОНАЛЬНО
-  ├── 1.16.5
-  ├── 1.12.2
-  └── 1.7.10
+  ├── 1.16.5 Forge + Fabric
+  ├── 1.12.2 Forge + Fabric Legacy
+  └── 1.7.10 Forge + Fabric Legacy
 ```
-
----
-
-## Сводка: что меняется в коде
-
-| Файл | Куда переносится |
-|---|---|
-| `IFurnaceCatchupHandler.java` | → `modern/common/src/main/java/com/keepsmelting/api/` |
-| `CatchupHandlerRegistry.java` | → `modern/common/src/main/java/com/keepsmelting/api/` |
-| `AbstractCatchupHandler.java` | → `modern/common/src/main/java/com/keepsmelting/internal/catchup/` |
-| `VanillaCatchupHandler.java` | → `modern/common/src/main/java/com/keepsmelting/internal/catchup/` |
-| `VanillaHopperIO.java` | → `modern/common/src/main/java/com/keepsmelting/internal/catchup/` |
-| `FurnaceMode.java` | → `modern/common/src/main/java/com/keepsmelting/internal/ironfurnaces/` |
-| `FactoryMode.java` | → `modern/common/src/main/java/com/keepsmelting/internal/ironfurnaces/` |
-| `GeneratorMode.java` | → `modern/common/src/main/java/com/keepsmelting/internal/ironfurnaces/` |
-| `IronFurnaceCatchupHandler.java` | → `modern/common/src/main/java/com/keepsmelting/internal/ironfurnaces/` |
-| `IFurnaceAccessor.java` | → `modern/common/src/main/java/com/keepsmelting/mixin/` |
-| `FurnaceTickMixin.java` | → `modern/common/src/main/java/com/keepsmelting/mixin/` |
-| `KeepSmelting.java` | → `modern/forge/src/main/java/com/keepsmelting/` |
-| `KeepSmeltingConfig.java` | → `modern/forge/src/main/java/com/keepsmelting/` |
-| `KeepSmeltingCommand.java` | → `modern/forge/src/main/java/com/keepsmelting/command/` |
-| `IronFurnaceAccessor.java` | → `modern/forge/src/main/java/com/keepsmelting/mixin/ironfurnaces/` (остаётся в forge) |
-| `keepsmelting.mixins.json` | → `modern/forge/src/main/resources/` |
-| `mods.toml` | → `modern/forge/src/main/templates/META-INF/` |
-| `accesstransformer.cfg` | → `modern/forge/src/main/resources/META-INF/` |
