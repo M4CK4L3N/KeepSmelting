@@ -11,11 +11,21 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.AABB;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public abstract class AbstractCatchupHandler implements IFurnaceCatchupHandler {
 
     private static final String TAG_LAST_TIME = "keepsmelting_lastRealTime";
+
+    /**
+     * Дедупликация debug-сообщений в рамках одного тика.
+     * Предотвращает двойную отправку для одной и той же печи
+     * (например, когда Factory обрабатывает соседние Generator'ы
+     * через processNeighborGenerators, и Generator также получает свой тик).
+     */
+    private static final Set<BlockPos> DEBUG_SENT_THIS_TICK = new HashSet<>();
 
     protected long lastRealTime;
     protected String activeTimeMode;
@@ -72,6 +82,10 @@ public abstract class AbstractCatchupHandler implements IFurnaceCatchupHandler {
         if (dm == KeepSmeltingConfig.DebugMode.OFF) return;
         if (!(level instanceof ServerLevel serverLevel)) return;
 
+        // Дедупликация: если для этой позиции уже отправили debug в этом тике — пропускаем
+        if (DEBUG_SENT_THIS_TICK.contains(pos)) return;
+        DEBUG_SENT_THIS_TICK.add(pos);
+
         Component msg;
         if ("Generator".equals(mode)) {
             String rfStr = outputDelta > 0 ? String.format("rf: §a+%d", outputDelta) : "rf: 0";
@@ -90,6 +104,14 @@ public abstract class AbstractCatchupHandler implements IFurnaceCatchupHandler {
         } else {
             com.keepsmelting.KeepSmelting.LOGGER.info(msg.getString());
         }
+    }
+
+    /**
+     * Очищает кэш дедупликации debug-сообщений.
+     * Должен вызываться раз в тик (например, из mixin'ов до обработки catchup).
+     */
+    public static void clearDebugDedup() {
+        DEBUG_SENT_THIS_TICK.clear();
     }
 
     private static void sendToNearbyPlayers(ServerLevel level, BlockPos pos, Component msg) {

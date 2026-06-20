@@ -16,9 +16,24 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Pseudo
 @Mixin(targets = "ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase")
 public abstract class IronFurnaceTickMixin {
+
+    /**
+     * Глобальная дедупликация: сет позиций, которые уже были обработаны в текущем тике.
+     * Нужна потому что Factory-режим вызывает processNeighborGenerators(),
+     * который догоняет соседние генераторы. Без дедупликации эти генераторы
+     * получили бы двойную обработку (ещё один раз от своего собственного тика).
+     */
+    /** Счётчик игровых тиков для очистки кэша дедупликации */
+    @Unique
+    private static long keepsmelting$lastTickCleared = -1;
+    @Unique
+    private static final Set<BlockPos> keepsmelting$processedThisTick = new HashSet<>();
 
     @Unique
     private long keepsmelting$lastRealTime;
@@ -44,7 +59,21 @@ public abstract class IronFurnaceTickMixin {
     private static void onTick(Level level, BlockPos pos, BlockState state,
                                BlockIronFurnaceTileBase tile, CallbackInfo ci) {
         if (level.isClientSide) return;
+
+        // Очищаем кэш каждый игровой тик (по gameTime)
+        long gameTime = level.getGameTime();
+        if (gameTime != keepsmelting$lastTickCleared) {
+            keepsmelting$processedThisTick.clear();
+            com.keepsmelting.internal.catchup.AbstractCatchupHandler.clearDebugDedup();
+            keepsmelting$lastTickCleared = gameTime;
+        }
+
         if (!KeepSmeltingConfig.COMMON.catchupEnabled.get()) return;
+
+        // Дедупликация: если эта печь уже была обработана в этом тике
+        // (например, как сосед генератор от Factory), пропускаем
+        if (keepsmelting$processedThisTick.contains(pos)) return;
+        keepsmelting$processedThisTick.add(pos);
 
         IronFurnaceTickMixin self = (IronFurnaceTickMixin) (Object) tile;
 
