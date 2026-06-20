@@ -23,6 +23,19 @@ import java.util.Optional;
  */
 public class CatchupSimulation {
 
+    /**
+     * Возвращает массив входных слотов завода в зависимости от tier'а.
+     * Tier 0 (Iron): слоты 9, 10 (2 слота)
+     * Tier 1 (Gold): слоты 8, 9, 10, 11 (4 слота)
+     * Остальные: слоты 7, 8, 9, 10, 11, 12 (6 слотов)
+     */
+    public static int[] getFactoryInputSlots(BlockIronFurnaceTileBase factoryTile) {
+        int tier = factoryTile.getTier();
+        if (tier == 0) return new int[]{9, 10};
+        if (tier == 1) return new int[]{8, 9, 10, 11};
+        return new int[]{7, 8, 9, 10, 11, 12};
+    }
+
     // ========== PHASE 1: COUNT ==========
 
     /** Сколько RF/тик даёт генератор. */
@@ -36,10 +49,10 @@ public class CatchupSimulation {
         return (long) Math.ceil(genTile.getGeneratorBurn() * 20.0 / gen);
     }
 
-    /** Подсчитывает всё топливо генератора (слот + соседние контейнеры). */
+    /** Подсчитывает всё топливо генератора (слот + соседние контейнеры по всем сторонам). */
     public static int countGeneratorFuel(BlockIronFurnaceTileBase genTile, Level level) {
         int total = genTile.inventory.get(6).getCount();
-        for (Direction dir : Direction.Plane.HORIZONTAL) {
+        for (Direction dir : Direction.values()) {
             BlockPos neighbor = genTile.getBlockPos().relative(dir);
             if (!level.isLoaded(neighbor)) continue;
             BlockEntity be = level.getBlockEntity(neighbor);
@@ -55,9 +68,9 @@ public class CatchupSimulation {
         return total;
     }
 
-    /** Подсчитывает ингредиенты завода (6 слотов + контейнер сверху). */
+    /** Подсчитывает ингредиенты завода (правильные слоты под tier + контейнер сверху). */
     public static int countFactoryInputs(BlockIronFurnaceTileBase factoryTile, Level level) {
-        int[] inputSlots = new int[]{7, 8, 9, 10, 11, 12};
+        int[] inputSlots = getFactoryInputSlots(factoryTile);
         int total = 0;
         for (int slot : inputSlots) {
             total += factoryTile.inventory.get(slot).getCount();
@@ -124,6 +137,239 @@ public class CatchupSimulation {
         p.totalRfPerTick = Math.max(1, totalRfPerTick);
         p.maxCookTime = Math.max(1, maxCookTime);
         return p;
+    }
+
+    /** Агрегирует ресурсы из сети печей. */
+    public static NetworkResources aggregateNetwork(FurnaceNetwork network, Level level) {
+        NetworkResources nr = new NetworkResources();
+
+        // Генераторы
+        for (BlockIronFurnaceTileBase gen : network.generators) {
+            nr.totalFuel += countGeneratorFuel(gen, level);
+            nr.totalGenCapacity += gen.getCapacity();
+            nr.totalGenCurrentRf += gen.getEnergy();
+            nr.totalRfPerTick += getGeneratorRfPerTick(gen);
+        }
+
+        // Заводы
+        for (BlockIronFurnaceTileBase factory : network.factories) {
+            nr.totalSmeltableItems += countFactoryInputs(factory, level);
+            nr.totalOutputSpace += countFactoryOutputSpace(factory, level);
+            nr.totalFactoryCapacity += factory.getCapacity();
+            nr.totalFactoryCurrentRf += factory.getEnergy();
+
+            FactorySmeltParams params = computeFactoryParams(factory);
+            nr.totalRfPerTickConsumption += params.totalRfPerTick;
+            nr.maxRfPerItem = Math.max(nr.maxRfPerItem, params.maxRfPerItem);
+            nr.maxCookTime = Math.max(nr.maxCookTime, params.maxCookTime);
+        }
+
+        // Запоминаем сеть для распределения
+        nr.network = network;
+        return nr;
+    }
+
+    /** Агрегированные ресурсы сети. */
+    public static class NetworkResources {
+        public FurnaceNetwork network;
+
+        public int totalFuel;
+        public int totalRfPerTick;
+        public int totalGenCapacity;
+        public int totalGenCurrentRf;
+
+        public int totalSmeltableItems;
+        public int totalOutputSpace;
+        public int totalRfPerTickConsumption;
+        public int maxRfPerItem = 1;
+        public int maxCookTime = 1;
+        public int totalFactoryCapacity;
+        public int totalFactoryCurrentRf;
+
+        public int getTotalCapacity() { return totalGenCapacity + totalFactoryCapacity; }
+        public int getTotalCurrentRf() { return totalGenCurrentRf + totalFactoryCurrentRf; }
+    }
+
+    /** Симулирует всю сеть за 1 проход. */
+    public static SimulationResult simulateNetwork(NetworkResources nr, long elapsedTicks) {
+        SimulationResult r = new SimulationResult();
+
+        com.keepsmelting.KeepSmelting.LOGGER.info(
+                "[Simulate] === Network {} gen={} fact={} elapsed={} ===",
+                nr.network.size(), nr.network.generators.size(), nr.network.factories.size(), elapsedTicks);
+        com.keepsmelting.KeepSmelting.LOGGER.info(
+                "[Simulate] Gen: fuel={} rf/tick={} cap={} curRF={}",
+                nr.totalFuel, nr.totalRfPerTick, nr.totalGenCapacity, nr.totalGenCurrentRf);
+        com.keepsmelting.KeepSmelting.LOGGER.info(
+                "[Simulate] Factory: items={} outSpace={} rf/item={} rf/tick={} cookTime={} cap={} curRF={}",
+                nr.totalSmeltableItems, nr.totalOutputSpace, nr.maxRfPerItem,
+                nr.totalRfPerTickConsumption, nr.maxCookTime,
+                nr.totalFactoryCapacity, nr.totalFactoryCurrentRf);
+
+        // Сколько RF можем сгенерировать из топлива
+        long maxRfFromFuel = 0;
+        if (nr.totalRfPerTick > 0 && nr.totalFuel > 0) {
+            long avgBurnTicksPerFuel = 1200;
+            long maxBurnTicks = Math.min((long) nr.totalFuel * avgBurnTicksPerFuel, elapsedTicks);
+            maxRfFromFuel = maxBurnTicks * nr.totalRfPerTick;
+        }
+        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] maxRfFromFuel={}", maxRfFromFuel);
+
+        // Сколько RF можем потребить (ингредиенты + место на выходе)
+        int actualSmeltable = Math.min(nr.totalSmeltableItems, nr.totalOutputSpace);
+        long maxRfToConsume = 0;
+        if (nr.totalRfPerTickConsumption > 0 && actualSmeltable > 0) {
+            long ticksToSmeltAll = (long) actualSmeltable * nr.maxCookTime;
+            maxRfToConsume = Math.min(ticksToSmeltAll, elapsedTicks) * nr.totalRfPerTickConsumption;
+        }
+        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] actualSmeltable={} maxRfToConsume={}", actualSmeltable, maxRfToConsume);
+
+        // Сколько RF можем сохранить
+        int storageAvailable = Math.max(0, nr.getTotalCapacity() - nr.getTotalCurrentRf());
+        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] storageAvailable={} (cap={} cur={})",
+                storageAvailable, nr.getTotalCapacity(), nr.getTotalCurrentRf());
+
+        // Узкое место
+        long effectiveRf = Math.min(maxRfFromFuel, maxRfToConsume + storageAvailable);
+        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] effectiveRf={}", effectiveRf);
+        if (effectiveRf <= 0 && maxRfFromFuel <= 0 && maxRfToConsume <= 0) return r;
+
+        // Сколько топлива сжечь (реальное, не всё)
+        if (maxRfFromFuel > 0 && nr.totalFuel > 0 && effectiveRf > 0) {
+            long avgBurnTicksPerFuel = 1200;
+            long neededBurnTicks = effectiveRf / Math.max(1, nr.totalRfPerTick);
+            r.fuelToBurn = (int) Math.ceil((double) neededBurnTicks / avgBurnTicksPerFuel);
+            // Не больше чем есть
+            r.fuelToBurn = Math.min(r.fuelToBurn, nr.totalFuel);
+        }
+        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] fuelToBurn={}", r.fuelToBurn);
+
+        // Сколько предметов расплавить
+        if (maxRfToConsume > 0 && nr.maxRfPerItem > 0) {
+            r.itemsToSmelt = (int) Math.min(actualSmeltable, effectiveRf / nr.maxRfPerItem);
+            r.rfForFactory = r.itemsToSmelt * nr.maxRfPerItem;
+        }
+        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] itemsToSmelt={} rfForFactory={}", r.itemsToSmelt, r.rfForFactory);
+
+        // Остаток RF — распределить
+        long remainingRf = effectiveRf - r.rfForFactory;
+        if (remainingRf > 0) {
+            int genStorageSpace = Math.max(0, nr.totalGenCapacity - nr.totalGenCurrentRf);
+            if (genStorageSpace > 0) {
+                r.rfForGenerators = (int) Math.min(genStorageSpace, remainingRf);
+                remainingRf -= r.rfForGenerators;
+            }
+            int factoryStorageSpace = Math.max(0, nr.totalFactoryCapacity - nr.totalFactoryCurrentRf);
+            if (factoryStorageSpace > 0) {
+                r.rfForFactoryStorage = (int) Math.min(factoryStorageSpace, remainingRf);
+            }
+        }
+
+        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] remainingRf={} genSpace={} factSpace={}",
+                effectiveRf - r.rfForFactory,
+                Math.max(0, nr.totalGenCapacity - nr.totalGenCurrentRf),
+                Math.max(0, nr.totalFactoryCapacity - nr.totalFactoryCurrentRf));
+
+        r.effectiveTicks = elapsedTicks;
+        return r;
+    }
+
+    /** Распределяет результат симуляции по сети. */
+    public static void distributeToNetwork(NetworkResources nr, SimulationResult r, Level level) {
+        com.keepsmelting.KeepSmelting.LOGGER.info(
+                "[Distribute] fuel={} items={} rfGen={} rfFact={} rfStore={}",
+                r.fuelToBurn, r.itemsToSmelt, r.rfForGenerators, r.rfForFactory, r.rfForFactoryStorage);
+
+        if (r.fuelToBurn <= 0 && r.itemsToSmelt <= 0
+                && r.rfForGenerators <= 0 && r.rfForFactoryStorage <= 0) return;
+
+        // === 1. Сжечь топливо в генераторах ===
+        if (r.fuelToBurn > 0 && !nr.network.generators.isEmpty()) {
+            int totalGen = nr.network.generators.size();
+            for (BlockIronFurnaceTileBase gen : nr.network.generators) {
+                int share = r.fuelToBurn / totalGen;
+                burnFuelIn(gen, Math.max(1, share), level);
+            }
+        }
+
+        // === 2. Дать RF заводам (бюджет на плавку) ===
+        if (r.rfForFactory > 0 && !nr.network.factories.isEmpty()) {
+            int totalFact = nr.network.factories.size();
+            int perFact = r.rfForFactory / totalFact;
+            for (BlockIronFurnaceTileBase factory : nr.network.factories) {
+                factory.setEnergy(factory.getEnergy() + perFact);
+                factory.setChanged();
+            }
+        }
+
+        // === 3. Расплавить предметы (теперь у заводов есть RF) ===
+        if (r.itemsToSmelt > 0 && !nr.network.factories.isEmpty()) {
+            int totalFact = nr.network.factories.size();
+            for (BlockIronFurnaceTileBase factory : nr.network.factories) {
+                int share = r.itemsToSmelt / totalFact;
+                int rfShare = r.rfForFactory / totalFact;
+                if (share > 0) {
+                    applyFactorySmelt(factory, level, Math.max(1, share), Math.max(1, rfShare));
+                }
+            }
+        }
+
+        // === 4. Распределить RF генераторам ===
+        if (r.rfForGenerators > 0 && !nr.network.generators.isEmpty()) {
+            int totalGen = nr.network.generators.size();
+            int perGen = r.rfForGenerators / totalGen;
+            for (BlockIronFurnaceTileBase gen : nr.network.generators) {
+                int space = gen.getCapacity() - gen.getEnergy();
+                if (space > 0) {
+                    int toAdd = Math.min(space, perGen);
+                    gen.setEnergy(gen.getEnergy() + toAdd);
+                    gen.setChanged();
+                }
+            }
+        }
+
+        // === 5. Распределить оставшийся RF заводам ===
+        if (r.rfForFactoryStorage > 0 && !nr.network.factories.isEmpty()) {
+            int totalFact = nr.network.factories.size();
+            int perFact = r.rfForFactoryStorage / totalFact;
+            for (BlockIronFurnaceTileBase factory : nr.network.factories) {
+                int space = factory.getCapacity() - factory.getEnergy();
+                if (space > 0) {
+                    factory.setEnergy(factory.getEnergy() + Math.min(space, perFact));
+                    factory.setChanged();
+                }
+            }
+        }
+
+        // Пометить обработанные печи
+        for (BlockIronFurnaceTileBase gen : nr.network.generators) {
+            CatchupDedup.mark(gen.getBlockPos());
+        }
+        for (BlockIronFurnaceTileBase fact : nr.network.factories) {
+            CatchupDedup.mark(fact.getBlockPos());
+        }
+    }
+
+    /** Сжигает топливо в генераторе. */
+    private static void burnFuelIn(BlockIronFurnaceTileBase genTile, int amount, Level level) {
+        int toBurn = amount;
+        ItemStack fuelStack = genTile.inventory.get(6);
+        while (toBurn > 0) {
+            if (fuelStack.isEmpty()) {
+                pullFuelFromNeighbors(genTile, level);
+                fuelStack = genTile.inventory.get(6);
+                if (fuelStack.isEmpty()) break;
+            }
+            int take = Math.min(toBurn, fuelStack.getCount());
+            fuelStack.shrink(take);
+            toBurn -= take;
+            if (fuelStack.isEmpty()) {
+                genTile.inventory.set(6, fuelStack.getCraftingRemainingItem());
+            }
+            genTile.setChanged();
+        }
+        genTile.generatorBurn = genTile.getGeneratorBurn();
+        genTile.generatorRecentRecipeRF = (int) genTile.generatorBurn;
     }
 
     // ========== PHASE 2: SIMULATE ==========
@@ -341,13 +587,20 @@ public class CatchupSimulation {
             int itemsToSmelt, int rfBudget) {
 
         IronFurnaceAccessor acc = (IronFurnaceAccessor) factoryTile;
-        int[] inputSlots = new int[]{7, 8, 9, 10, 11, 12};
+        // Количество входных слотов зависит от tier'а печи
+        int[] inputSlots = getFactoryInputSlots(factoryTile);
+        int slotCount = inputSlots.length;
+
+        // Pre-fill: заполняем пустые слоты из бочек
+        acc.invokeAutoFactoryIO();
+
         int remaining = itemsToSmelt;
         int rfSpent = 0;
+        int consecutiveFails = 0;
 
         while (remaining > 0) {
             boolean anyWorked = false;
-            for (int i = 0; i < 6; i++) {
+            for (int i = 0; i < slotCount; i++) {
                 int slot = inputSlots[i];
                 ItemStack input = factoryTile.inventory.get(slot);
                 if (input.isEmpty()) {
@@ -359,17 +612,20 @@ public class CatchupSimulation {
                 int outputSlot = slot + 6;
                 ItemStack out = factoryTile.inventory.get(outputSlot);
                 if (!out.isEmpty() && out.getCount() >= out.getMaxStackSize()) {
-                    // Пытаемся вытолкнуть вниз
                     pushFactoryOutputBelow(factoryTile, level);
                     out = factoryTile.inventory.get(outputSlot);
                     if (!out.isEmpty() && out.getCount() >= out.getMaxStackSize()) continue;
                 }
 
+                // Сбрасываем cookTime и usedRF перед каждым новым предметом
+                // (имитируем завершение предыдущего рецепта)
+                factoryTile.usedRF[i] = 0.0;
+                factoryTile.factoryCookTime[i] = 0;
+
                 // Получаем рецепт
                 Optional<? extends net.minecraft.world.item.crafting.AbstractCookingRecipe> recipeOpt =
                         acc.invokeGetRecipeFactory(slot, input);
                 if (recipeOpt.isEmpty()) continue;
-                if (!acc.invokeCanFactorySmelt(recipeOpt.get(), slot)) continue;
 
                 int rfPerItem = recipeOpt.get().getCookingTime() * 20;
                 ItemStack greenAug = factoryTile.inventory.get(4);
@@ -378,25 +634,41 @@ public class CatchupSimulation {
                 if (hasSpeed) rfPerItem *= 2;
                 if (hasFuel) rfPerItem /= 2;
 
-                if (factoryTile.getEnergy() < rfPerItem) continue;
-
-                // Плавим
+                // Вместо invokeFactorySmelt — напрямую кладём результат
+                // (избегаем проблем с внутренним состоянием Iron Furnaces: usedRF, cookTime)
                 input.shrink(1);
                 if (input.isEmpty()) {
                     factoryTile.inventory.set(slot, ItemStack.EMPTY);
                 }
-                acc.invokeFactorySmelt(recipeOpt.get(), slot);
+
+                // Получаем результат рецепта
+                ItemStack result = recipeOpt.get().getResultItem(factoryTile.getLevel().registryAccess());
+                if (!result.isEmpty()) {
+                    ItemStack currentOut = factoryTile.inventory.get(outputSlot);
+                    if (currentOut.isEmpty()) {
+                        factoryTile.inventory.set(outputSlot, result.copy());
+                    } else if (ItemStack.isSameItemSameTags(currentOut, result)
+                            && currentOut.getCount() < currentOut.getMaxStackSize()) {
+                        currentOut.grow(result.getCount());
+                    }
+                }
 
                 int drain = Math.min(rfPerItem, factoryTile.getEnergy());
                 factoryTile.setEnergy(factoryTile.getEnergy() - drain);
                 rfSpent += drain;
                 remaining--;
                 anyWorked = true;
+                consecutiveFails = 0;
                 factoryTile.setChanged();
 
                 if (remaining <= 0) break;
             }
-            if (!anyWorked) break;
+            if (!anyWorked) {
+                consecutiveFails++;
+                if (consecutiveFails >= 3) break;
+                // Пробуем ещё — может autoFactoryIO не успел
+                acc.invokeAutoFactoryIO();
+            }
         }
 
         // Дебаг
@@ -405,11 +677,33 @@ public class CatchupSimulation {
                 itemsToSmelt - remaining, 0, 0, true);
     }
 
+    /** Вытягивает 1 предмет из контейнера сверху в указанный слот завода. */
+    private static void pullFactoryInputFromAbove(BlockIronFurnaceTileBase factoryTile, Level level) {
+        BlockPos above = factoryTile.getBlockPos().above();
+        if (!level.isLoaded(above)) return;
+        if (!(level.getBlockEntity(above) instanceof net.minecraft.world.Container container)) return;
+
+        int[] inputSlots = new int[]{7, 8, 9, 10, 11, 12};
+        for (int slot : inputSlots) {
+            if (!factoryTile.inventory.get(slot).isEmpty()) continue;
+            for (int i = 0; i < container.getContainerSize(); i++) {
+                ItemStack src = container.getItem(i);
+                if (src.isEmpty()) continue;
+                ItemStack taken = container.removeItem(i, 1);
+                if (taken.isEmpty()) continue;
+                factoryTile.inventory.set(slot, taken);
+                container.setChanged();
+                factoryTile.setChanged();
+                return;
+            }
+        }
+    }
+
     // ========== HOPPER HELPERS ==========
 
     private static void pullFuelFromNeighbors(BlockIronFurnaceTileBase genTile, Level level) {
         BlockPos pos = genTile.getBlockPos();
-        for (Direction dir : Direction.Plane.HORIZONTAL) {
+        for (Direction dir : Direction.values()) {
             BlockPos neighbor = pos.relative(dir);
             if (!level.isLoaded(neighbor)) continue;
             if (!(level.getBlockEntity(neighbor) instanceof Container container)) continue;

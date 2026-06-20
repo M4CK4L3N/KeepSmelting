@@ -72,16 +72,15 @@ obfuscation {
 
 dependencies {
     // compileOnly — Iron Furnaces jar for mixin compilation. Optional at runtime (defaultRequire: 0).
+    // Для тестирования установи ironfurnaces-1.20.1-4.1.8.jar вручную в папку mods твоего лаунчера
     compileOnly files('libs/ironfurnaces-1.20.1-4.1.8.jar')
+
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
 
 mixin {
     add sourceSets.main, "${mod_id}.refmap.json"
     config "${mod_id}.mixins.json"
-}
-
-dependencies {
-    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
 
 jar {

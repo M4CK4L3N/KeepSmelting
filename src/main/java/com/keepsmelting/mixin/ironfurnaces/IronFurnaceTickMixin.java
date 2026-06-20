@@ -2,8 +2,7 @@ package com.keepsmelting.mixin.ironfurnaces;
 
 import com.keepsmelting.KeepSmeltingConfig;
 import com.keepsmelting.api.CatchupHandlerRegistry;
-import com.keepsmelting.api.IFurnaceCatchupHandler;
-import com.keepsmelting.internal.ironfurnaces.IronFurnaceCatchupHandler;
+import com.keepsmelting.internal.ironfurnaces.CatchupDedup;
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
@@ -16,24 +15,9 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.HashSet;
-import java.util.Set;
-
 @Pseudo
 @Mixin(targets = "ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase")
 public abstract class IronFurnaceTickMixin {
-
-    /**
-     * Глобальная дедупликация: сет позиций, которые уже были обработаны в текущем тике.
-     * Нужна потому что Factory-режим вызывает processNeighborGenerators(),
-     * который догоняет соседние генераторы. Без дедупликации эти генераторы
-     * получили бы двойную обработку (ещё один раз от своего собственного тика).
-     */
-    /** Счётчик игровых тиков для очистки кэша дедупликации */
-    @Unique
-    private static long keepsmelting$lastTickCleared = -1;
-    @Unique
-    private static final Set<BlockPos> keepsmelting$processedThisTick = new HashSet<>();
 
     @Unique
     private long keepsmelting$lastRealTime;
@@ -60,20 +44,14 @@ public abstract class IronFurnaceTickMixin {
                                BlockIronFurnaceTileBase tile, CallbackInfo ci) {
         if (level.isClientSide) return;
 
-        // Очищаем кэш каждый игровой тик (по gameTime)
-        long gameTime = level.getGameTime();
-        if (gameTime != keepsmelting$lastTickCleared) {
-            keepsmelting$processedThisTick.clear();
-            com.keepsmelting.internal.catchup.AbstractCatchupHandler.clearDebugDedup();
-            keepsmelting$lastTickCleared = gameTime;
-        }
+        // Очищаем кэш дедупликации раз в тик
+        CatchupDedup.checkNewTick(level.getGameTime());
 
         if (!KeepSmeltingConfig.COMMON.catchupEnabled.get()) return;
 
-        // Дедупликация: если эта печь уже была обработана в этом тике
-        // (например, как сосед генератор от Factory), пропускаем
-        if (keepsmelting$processedThisTick.contains(pos)) return;
-        keepsmelting$processedThisTick.add(pos);
+        // Дедупликация: если печь уже обработана сетью (от Factory), пропускаем
+        if (CatchupDedup.isProcessed(pos)) return;
+        CatchupDedup.mark(pos);
 
         IronFurnaceTickMixin self = (IronFurnaceTickMixin) (Object) tile;
 
@@ -95,7 +73,6 @@ public abstract class IronFurnaceTickMixin {
         elapsed = Math.min(elapsed, KeepSmeltingConfig.COMMON.maxCatchupTicks.get());
         if (elapsed <= 0) return;
 
-        // Delegate to Iron Furnaces handler
         CatchupHandlerRegistry.find(tile.getClass()).applyCatchup(tile, elapsed, level, pos);
     }
 }
