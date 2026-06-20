@@ -138,6 +138,49 @@ public class CatchupSimulation {
         public long effectiveTicks;
     }
 
+    /** Симуляция Generator в соло (без завода рядом). */
+    public static SimulationResult simulateGeneratorOnly(
+            int totalFuelItems, long burnTicksPerFuel, int rfPerTick,
+            int capacity, int currentRf,
+            long elapsedTicks) {
+        SimulationResult r = new SimulationResult();
+        // Сколько RF можем сгенерировать за elapsed (ограничено топливом)
+        long maxBurnTicks = Math.min((long) totalFuelItems * burnTicksPerFuel, elapsedTicks);
+        long maxRfFromFuel = maxBurnTicks * rfPerTick;
+        // Сколько RF можем сохранить (capacity)
+        int storageAvailable = Math.max(0, capacity - currentRf);
+        // Узкое место — min(генерация, хранение)
+        long effectiveRf = Math.min(maxRfFromFuel, storageAvailable);
+        if (effectiveRf <= 0) return r;
+        long effectiveBurnTicks = effectiveRf / Math.max(1, rfPerTick);
+        r.effectiveTicks = Math.min(elapsedTicks, effectiveBurnTicks);
+        r.fuelToBurn = (int) Math.ceil((double) r.effectiveTicks / burnTicksPerFuel);
+        r.rfForGenerators = (int) Math.min(storageAvailable, effectiveRf);
+        return r;
+    }
+
+    /** Симуляция Factory без генератора. */
+    public static SimulationResult simulateFactoryOnly(
+            int totalSmeltableItems, int outputSpace, int maxRfPerItem,
+            int totalRfPerTickConsumption, int maxCookTime,
+            int factoryCurrentRf, long elapsedTicks) {
+        SimulationResult r = new SimulationResult();
+        int actualSmeltable = Math.min(totalSmeltableItems, outputSpace);
+        if (actualSmeltable <= 0) return r;
+        long ticksToSmeltAll = (long) actualSmeltable * maxCookTime;
+        long maxTicksThatFit = Math.min(ticksToSmeltAll, elapsedTicks);
+        // RF потребление ограничено текущим RF + временем
+        long rfNeededMax = maxTicksThatFit * totalRfPerTickConsumption;
+        long rfAvailable = factoryCurrentRf; // только то что есть, генератора нет
+        long effectiveRf = Math.min(rfNeededMax, rfAvailable);
+        if (effectiveRf <= 0) return r;
+        int itemsPossible = (int) (effectiveRf / Math.max(1, maxRfPerItem));
+        r.itemsToSmelt = Math.min(actualSmeltable, itemsPossible);
+        r.rfForFactory = r.itemsToSmelt * maxRfPerItem;
+        r.effectiveTicks = r.itemsToSmelt * maxCookTime;
+        return r;
+    }
+
     /** Симулирует цепочку без сайд-эффектов. */
     public static SimulationResult simulate(
             int totalFuelItems, long burnTicksPerFuel, int rfPerTick,
@@ -196,7 +239,53 @@ public class CatchupSimulation {
 
     // ========== PHASE 3: APPLY ==========
 
-    /** Применяет результат симуляции. */
+    /** Применяет результат симуляции Generator в соло. */
+    public static void applyGeneratorOnly(
+            BlockIronFurnaceTileBase genTile, Level level,
+            SimulationResult simResult) {
+        if (simResult.fuelToBurn <= 0 && simResult.rfForGenerators <= 0) return;
+        // Сжечь топливо
+        if (simResult.fuelToBurn > 0) {
+            int toBurn = simResult.fuelToBurn;
+            ItemStack fuelStack = genTile.inventory.get(6);
+            while (toBurn > 0) {
+                if (fuelStack.isEmpty()) {
+                    pullFuelFromNeighbors(genTile, level);
+                    fuelStack = genTile.inventory.get(6);
+                    if (fuelStack.isEmpty()) break;
+                }
+                int take = Math.min(toBurn, fuelStack.getCount());
+                fuelStack.shrink(take);
+                toBurn -= take;
+                if (fuelStack.isEmpty()) {
+                    genTile.inventory.set(6, fuelStack.getCraftingRemainingItem());
+                }
+                genTile.setChanged();
+            }
+        }
+        // Залить RF
+        if (simResult.rfForGenerators > 0) {
+            int space = genTile.getCapacity() - genTile.getEnergy();
+            if (space > 0) {
+                genTile.setEnergy(genTile.getEnergy() + Math.min(space, simResult.rfForGenerators));
+                genTile.setChanged();
+            }
+        }
+        AbstractCatchupHandler.sendChatDebug(level, genTile.getBlockPos(),
+                "Generator", simResult.effectiveTicks,
+                simResult.fuelToBurn, simResult.rfForGenerators,
+                0, 0, genTile.getEnergy() > 0);
+    }
+
+    /** Применяет результат симуляции Factory в соло. */
+    public static void applyFactoryOnly(
+            BlockIronFurnaceTileBase factoryTile, Level level,
+            SimulationResult simResult) {
+        if (simResult.itemsToSmelt <= 0 && simResult.rfForFactory <= 0) return;
+        applyFactorySmelt(factoryTile, level, simResult.itemsToSmelt, simResult.rfForFactory);
+    }
+
+    /** Применяет результат симуляции Factory + Generator. */
     public static void applyResult(
             BlockIronFurnaceTileBase genTile, BlockIronFurnaceTileBase factoryTile,
             Level level, BlockPos pos, SimulationResult simResult) {
