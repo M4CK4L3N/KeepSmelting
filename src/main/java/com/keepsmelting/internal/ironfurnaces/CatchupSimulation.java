@@ -1,5 +1,6 @@
 package com.keepsmelting.internal.ironfurnaces;
 
+import com.keepsmelting.internal.ironfurnaces.collect.FurnaceNetwork;
 import com.keepsmelting.internal.ironfurnaces.apply.SimulationApplicator;
 import com.keepsmelting.internal.ironfurnaces.collect.NetworkDataCollector;
 import com.keepsmelting.internal.ironfurnaces.data.SimulationData.FactorySmeltParams;

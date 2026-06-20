@@ -1,8 +1,8 @@
 package com.keepsmelting.internal.ironfurnaces.apply;
 
-import com.keepsmelting.internal.ironfurnaces.util.CatchupDedup;
-import com.keepsmelting.internal.ironfurnaces.FurnaceNetwork;
+import com.keepsmelting.internal.ironfurnaces.collect.FurnaceNetwork;
 import com.keepsmelting.internal.ironfurnaces.collect.NetworkDataCollector;
+import com.keepsmelting.internal.ironfurnaces.util.CatchupDedup;
 import com.keepsmelting.internal.ironfurnaces.data.SimulationData.NetworkResources;
 import com.keepsmelting.internal.ironfurnaces.data.SimulationData.SimulationResult;
 import com.keepsmelting.internal.ironfurnaces.util.FurnaceFuelHandler;

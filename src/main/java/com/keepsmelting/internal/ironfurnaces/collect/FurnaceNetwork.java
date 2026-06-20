@@ -1,4 +1,4 @@
-package com.keepsmelting.internal.ironfurnaces;
+package com.keepsmelting.internal.ironfurnaces.collect;
 
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraft.core.BlockPos;
@@ -22,9 +22,6 @@ public class FurnaceNetwork {
 
     private final Set<BlockPos> visited = new HashSet<>();
 
-    /**
-     * Собирает сеть: все Iron Furnaces печи рядом (BFS глубина 1).
-     */
     public boolean discover(BlockIronFurnaceTileBase start, Level level) {
         visited.clear();
         generators.clear();
@@ -75,14 +72,9 @@ public class FurnaceNetwork {
                         curType, nebType,
                         curSetting, dir, nebSetting, dir.getOpposite());
 
-                // Соединение есть, если хотя бы одна сторона настроена на обмен
                 boolean connected = false;
-
-                // RF output: setting 2 или 3 на стороне генератора
                 if (neighbor.isGenerator() && (nebSetting == 2 || nebSetting == 3)) connected = true;
                 if (current.isGenerator() && (curSetting == 2 || curSetting == 3)) connected = true;
-
-                // Item IO: setting 1, 2 или 3 на стороне Factory
                 if (neighbor.isFactory() && (nebSetting == 1 || nebSetting == 2 || nebSetting == 3)) connected = true;
                 if (current.isFactory() && (curSetting == 1 || curSetting == 2 || curSetting == 3)) connected = true;
 

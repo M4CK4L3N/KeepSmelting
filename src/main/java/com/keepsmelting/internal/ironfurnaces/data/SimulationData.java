@@ -1,5 +1,7 @@
 package com.keepsmelting.internal.ironfurnaces.data;
 
+import com.keepsmelting.internal.ironfurnaces.collect.FurnaceNetwork;
+
 /**
  * DTO классов для симуляции печей Iron Furnaces.
  */
@@ -9,7 +11,7 @@ public class SimulationData {
 
     /** Агрегированные ресурсы сети. */
     public static class NetworkResources {
-        public com.keepsmelting.internal.ironfurnaces.FurnaceNetwork network;
+        public FurnaceNetwork network;
 
         public int totalFuel;
         public int totalRfPerTick;
