@@ -229,8 +229,9 @@ public class CatchupSimulation {
         com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] storageAvailable={} (cap={} cur={})",
                 storageAvailable, nr.getTotalCapacity(), nr.getTotalCurrentRf());
 
-        // Узкое место
-        long effectiveRf = Math.min(maxRfFromFuel, maxRfToConsume + storageAvailable);
+        // Узкое место: накопленное RF + сгенерированное, ограничено временем
+        long totalRfAvailable = maxRfFromFuel + nr.getTotalCurrentRf();
+        long effectiveRf = Math.min(totalRfAvailable, maxRfToConsume);
         com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] effectiveRf={}", effectiveRf);
         if (effectiveRf <= 0 && maxRfFromFuel <= 0 && maxRfToConsume <= 0) return r;
 
@@ -438,22 +439,23 @@ public class CatchupSimulation {
 
         SimulationResult r = new SimulationResult();
 
-        // 1. Сколько RF можем сгенерировать
+        // 1. Сколько RF есть всего: накопленное + можно сгенерировать
         long maxBurnTicks = Math.min((long) totalFuelItems * burnTicksPerFuel, elapsedTicks);
         long maxRfFromFuel = maxBurnTicks * rfPerTick;
+        long totalRfAvailable = maxRfFromFuel + generatorCurrentRf + factoryCurrentRf;
 
         // 2. Сколько RF можем потребить (ингредиенты + место на выходе)
         int actualSmeltable = Math.min(totalSmeltableItems, outputSpace);
         long ticksToSmeltAll = (long) actualSmeltable * maxCookTime;
         long maxRfToConsume = Math.min(ticksToSmeltAll, elapsedTicks) * totalRfPerTickConsumption;
 
-        // 3. Сколько RF можем сохранить
+        // 3. Сколько RF можем сохранить (свободное место)
         int totalCapacity = generatorCapacity + factoryCapacity;
         int totalCurrentRf = generatorCurrentRf + factoryCurrentRf;
         int storageAvailable = Math.max(0, totalCapacity - totalCurrentRf);
 
-        // 4. Узкое место
-        long effectiveRf = Math.min(maxRfFromFuel, maxRfToConsume + storageAvailable);
+        // 4. Узкое место: сколько RF можем потребить за elapsed время
+        long effectiveRf = Math.min(totalRfAvailable, maxRfToConsume);
         if (effectiveRf <= 0) return r;
 
         // 5. Сколько тиков
@@ -596,6 +598,7 @@ public class CatchupSimulation {
 
         int remaining = itemsToSmelt;
         int rfSpent = 0;
+        int smeltedCount = 0;
         int consecutiveFails = 0;
 
         while (remaining > 0) {
@@ -657,6 +660,7 @@ public class CatchupSimulation {
                 factoryTile.setEnergy(factoryTile.getEnergy() - drain);
                 rfSpent += drain;
                 remaining--;
+                smeltedCount++;
                 anyWorked = true;
                 consecutiveFails = 0;
                 factoryTile.setChanged();
@@ -671,10 +675,10 @@ public class CatchupSimulation {
             }
         }
 
-        // Дебаг
+        // Дебаг (используем переданный rfBudget как показатель)
         AbstractCatchupHandler.sendChatDebug(level, factoryTile.getBlockPos(),
-                "Factory", itemsToSmelt, 0,
-                itemsToSmelt - remaining, 0, 0, true);
+                "Factory", 0, 0,
+                smeltedCount, 0, 0, true);
     }
 
     /** Вытягивает 1 предмет из контейнера сверху в указанный слот завода. */
