@@ -22,8 +22,8 @@ public abstract class AbstractCatchupHandler implements IFurnaceCatchupHandler {
     /**
      * Дедупликация debug-сообщений в рамках одного тика.
      * Предотвращает двойную отправку для одной и той же печи
-     * (например, когда Factory обрабатывает соседние Generator'ы
-     * через processNeighborGenerators, и Generator также получает свой тик).
+     * (например, когда сеть обрабатывает Generator через distributeToNetwork,
+     * и Generator также получает свой собственный catchup-тик).
      */
     private static final Set<BlockPos> DEBUG_SENT_THIS_TICK = new HashSet<>();
 
