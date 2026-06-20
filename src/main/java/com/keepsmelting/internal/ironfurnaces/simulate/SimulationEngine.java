@@ -1,17 +1,15 @@
-package com.keepsmelting.internal.ironfurnaces;
+package com.keepsmelting.internal.ironfurnaces.simulate;
 
-import com.keepsmelting.internal.ironfurnaces.SimulationData.NetworkResources;
-import com.keepsmelting.internal.ironfurnaces.SimulationData.SimulationResult;
+import com.keepsmelting.internal.ironfurnaces.data.SimulationData.NetworkResources;
+import com.keepsmelting.internal.ironfurnaces.data.SimulationData.SimulationResult;
 
 /**
- * Phase 2: чистая математика симуляции.
- * Никаких сайд-эффектов — только вычисления.
+ * Phase 2: чистая математика симуляции. Никаких сайд-эффектов.
  */
 public class SimulationEngine {
 
     private SimulationEngine() {}
 
-    /** Симулирует всю сеть за 1 проход. */
     public static SimulationResult simulateNetwork(NetworkResources nr, long elapsedTicks) {
         SimulationResult r = new SimulationResult();
 
@@ -27,49 +25,37 @@ public class SimulationEngine {
                 nr.totalRfPerTickConsumption, nr.maxCookTime,
                 nr.totalFactoryCapacity, nr.totalFactoryCurrentRf);
 
-        // Сколько RF можем сгенерировать из топлива
         long maxRfFromFuel = 0;
         if (nr.totalRfPerTick > 0 && nr.totalFuel > 0) {
             long maxBurnTicks = Math.min((long) nr.totalFuel * nr.totalAvgBurnTicksPerFuel, elapsedTicks);
             maxRfFromFuel = maxBurnTicks * nr.totalRfPerTick;
         }
-        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] maxRfFromFuel={}", maxRfFromFuel);
 
-        // Сколько RF можем потребить (ингредиенты + место на выходе)
         int actualSmeltable = Math.min(nr.totalSmeltableItems, nr.totalOutputSpace);
         long maxRfToConsume = 0;
         if (nr.totalRfPerTickConsumption > 0 && actualSmeltable > 0) {
             long ticksToSmeltAll = (long) actualSmeltable * nr.maxCookTime;
             maxRfToConsume = Math.min(ticksToSmeltAll, elapsedTicks) * nr.totalRfPerTickConsumption;
         }
-        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] actualSmeltable={} maxRfToConsume={}", actualSmeltable, maxRfToConsume);
 
-        // RF из генераторов (топливо + накопленное) — то, что можем распределить
         long rfFromGenPool = maxRfFromFuel + nr.totalGenCurrentRf;
-        // RF уже внутри заводов — не требует распределения, но доступно для плавки
         long rfFactoryAlreadyThere = nr.totalFactoryCurrentRf;
-        // Общий бюджет RF на плавку
         long totalRfForSmelting = rfFromGenPool + rfFactoryAlreadyThere;
         long effectiveRf = Math.min(totalRfForSmelting, maxRfToConsume);
-        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] effectiveRf={}", effectiveRf);
+
         if (effectiveRf <= 0 && maxRfFromFuel <= 0 && maxRfToConsume <= 0) return r;
 
-        // Сколько топлива сжечь
         if (maxRfFromFuel > 0 && nr.totalFuel > 0 && effectiveRf > 0) {
             long neededBurnTicks = effectiveRf / Math.max(1, nr.totalRfPerTick);
             r.fuelToBurn = (int) Math.ceil((double) neededBurnTicks / nr.totalAvgBurnTicksPerFuel);
             r.fuelToBurn = Math.min(r.fuelToBurn, nr.totalFuel);
         }
-        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] fuelToBurn={}", r.fuelToBurn);
 
-        // Сколько предметов расплавить
         if (maxRfToConsume > 0 && nr.maxRfPerItem > 0) {
             r.itemsToSmelt = (int) Math.min(actualSmeltable, effectiveRf / nr.maxRfPerItem);
             r.rfForFactory = r.itemsToSmelt * nr.maxRfPerItem;
         }
-        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] itemsToSmelt={} rfForFactory={}", r.itemsToSmelt, r.rfForFactory);
 
-        // Остаток RF — распределить
         long remainingRf = effectiveRf - r.rfForFactory;
         if (remainingRf > 0) {
             int genStorageSpace = Math.max(0, nr.totalGenCapacity - nr.totalGenCurrentRf);
@@ -83,20 +69,13 @@ public class SimulationEngine {
             }
         }
 
-        com.keepsmelting.KeepSmelting.LOGGER.info("[Simulate] remainingRf={} genSpace={} factSpace={}",
-                effectiveRf - r.rfForFactory,
-                Math.max(0, nr.totalGenCapacity - nr.totalGenCurrentRf),
-                Math.max(0, nr.totalFactoryCapacity - nr.totalFactoryCurrentRf));
-
         r.effectiveTicks = elapsedTicks;
         return r;
     }
 
-    /** Симуляция Generator в соло (без завода рядом). */
     public static SimulationResult simulateGeneratorOnly(
             int totalFuelItems, long burnTicksPerFuel, int rfPerTick,
-            int capacity, int currentRf,
-            long elapsedTicks) {
+            int capacity, int currentRf, long elapsedTicks) {
         SimulationResult r = new SimulationResult();
         long maxBurnTicks = Math.min((long) totalFuelItems * burnTicksPerFuel, elapsedTicks);
         long maxRfFromFuel = maxBurnTicks * rfPerTick;
@@ -110,7 +89,6 @@ public class SimulationEngine {
         return r;
     }
 
-    /** Симуляция Factory без генератора. */
     public static SimulationResult simulateFactoryOnly(
             int totalSmeltableItems, int outputSpace, int maxRfPerItem,
             int totalRfPerTickConsumption, int maxCookTime,
@@ -131,7 +109,6 @@ public class SimulationEngine {
         return r;
     }
 
-    /** Симулирует цепочку Factory + Generator без сайд-эффектов. */
     public static SimulationResult simulate(
             int totalFuelItems, long burnTicksPerFuel, int rfPerTick,
             int totalSmeltableItems, int outputSpace, int maxRfPerItem,

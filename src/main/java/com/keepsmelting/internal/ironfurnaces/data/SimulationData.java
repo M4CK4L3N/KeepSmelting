@@ -1,8 +1,7 @@
-package com.keepsmelting.internal.ironfurnaces;
+package com.keepsmelting.internal.ironfurnaces.data;
 
 /**
  * DTO классов для симуляции печей Iron Furnaces.
- * Вынесены из CatchupSimulation для разделения ответственности.
  */
 public class SimulationData {
 
@@ -10,13 +9,12 @@ public class SimulationData {
 
     /** Агрегированные ресурсы сети. */
     public static class NetworkResources {
-        public FurnaceNetwork network;
+        public com.keepsmelting.internal.ironfurnaces.FurnaceNetwork network;
 
         public int totalFuel;
         public int totalRfPerTick;
         public int totalGenCapacity;
         public int totalGenCurrentRf;
-        /** Среднее количество burn ticks на единицу топлива (взвешенное по RF/tick). */
         public int totalAvgBurnTicksPerFuel = 1200;
 
         public int totalSmeltableItems;

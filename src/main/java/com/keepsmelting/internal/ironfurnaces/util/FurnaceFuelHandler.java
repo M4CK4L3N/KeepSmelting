@@ -1,4 +1,4 @@
-package com.keepsmelting.internal.ironfurnaces;
+package com.keepsmelting.internal.ironfurnaces.util;
 
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraft.core.BlockPos;
@@ -11,16 +11,11 @@ import net.minecraftforge.common.ForgeHooks;
 
 /**
  * Единая логика работы с топливом для генераторов Iron Furnaces.
- * Используется как CatchupSimulation, так и GeneratorMode.
  */
 public class FurnaceFuelHandler {
 
     private FurnaceFuelHandler() {}
 
-    /**
-     * Сжигает указанное количество единиц топлива в генераторе.
-     * Автоматически подтягивает топливо из соседних контейнеров если слот пуст.
-     */
     public static void burnFuelIn(BlockIronFurnaceTileBase genTile, int amount, Level level) {
         int toBurn = amount;
         ItemStack fuelStack = genTile.inventory.get(6);
@@ -42,16 +37,11 @@ public class FurnaceFuelHandler {
         genTile.generatorRecentRecipeRF = (int) genTile.generatorBurn;
     }
 
-    /**
-     * Зажигает одну единицу топлива в генераторе.
-     * Возвращает true если топливо успешно зажжено.
-     */
     public static boolean igniteFuel(BlockIronFurnaceTileBase genTile, Level level) {
         if (genTile.generatorBurn > 0.0) return true;
 
         ItemStack fuel = genTile.inventory.get(6);
         if (fuel.isEmpty()) {
-            // Пробуем подтянуть из соседей
             pullFuelFromNeighbors(genTile, level);
             fuel = genTile.inventory.get(6);
             if (fuel.isEmpty()) return false;
@@ -72,9 +62,6 @@ public class FurnaceFuelHandler {
         return genTile.generatorBurn > 0.0;
     }
 
-    /**
-     * Подсчитывает всё топливо генератора (слот + соседние контейнеры по всем сторонам).
-     */
     public static int countGeneratorFuel(BlockIronFurnaceTileBase genTile, Level level) {
         int total = genTile.inventory.get(6).getCount();
         for (Direction dir : Direction.values()) {
@@ -93,9 +80,6 @@ public class FurnaceFuelHandler {
         return total;
     }
 
-    /**
-     * Вытягивает 1 единицу топлива из соседних контейнеров в слот 6 генератора.
-     */
     private static void pullFuelFromNeighbors(BlockIronFurnaceTileBase genTile, Level level) {
         BlockPos pos = genTile.getBlockPos();
         for (Direction dir : Direction.values()) {
@@ -129,7 +113,6 @@ public class FurnaceFuelHandler {
         }
     }
 
-    /** Сколько тиков одна единица топлива даёт в генераторе. */
     public static long getBurnTicksPerFuel(BlockIronFurnaceTileBase genTile) {
         int gen = Math.max(1, genTile.getGeneration());
         return (long) Math.ceil(genTile.getGeneratorBurn() * 20.0 / gen);

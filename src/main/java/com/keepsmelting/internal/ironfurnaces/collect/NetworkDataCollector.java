@@ -1,7 +1,9 @@
-package com.keepsmelting.internal.ironfurnaces;
+package com.keepsmelting.internal.ironfurnaces.collect;
 
-import com.keepsmelting.internal.ironfurnaces.SimulationData.FactorySmeltParams;
-import com.keepsmelting.internal.ironfurnaces.SimulationData.NetworkResources;
+import com.keepsmelting.internal.ironfurnaces.FurnaceNetwork;
+import com.keepsmelting.internal.ironfurnaces.data.SimulationData.FactorySmeltParams;
+import com.keepsmelting.internal.ironfurnaces.data.SimulationData.NetworkResources;
+import com.keepsmelting.internal.ironfurnaces.util.FurnaceFuelHandler;
 import com.keepsmelting.mixin.ironfurnaces.IronFurnaceAccessor;
 import ironfurnaces.items.augments.ItemAugmentFuel;
 import ironfurnaces.items.augments.ItemAugmentSpeed;
@@ -21,12 +23,6 @@ public class NetworkDataCollector {
 
     private NetworkDataCollector() {}
 
-    /**
-     * Возвращает массив входных слотов завода в зависимости от tier'а.
-     * Tier 0 (Iron): слоты 9, 10 (2 слота)
-     * Tier 1 (Gold): слоты 8, 9, 10, 11 (4 слота)
-     * Остальные: слоты 7, 8, 9, 10, 11, 12 (6 слотов)
-     */
     public static int[] getFactoryInputSlots(BlockIronFurnaceTileBase factoryTile) {
         int tier = factoryTile.getTier();
         if (tier == 0) return new int[]{9, 10};
@@ -34,22 +30,18 @@ public class NetworkDataCollector {
         return new int[]{7, 8, 9, 10, 11, 12};
     }
 
-    /** Сколько RF/тик даёт генератор. */
     public static int getGeneratorRfPerTick(BlockIronFurnaceTileBase genTile) {
         return Math.max(1, genTile.getGeneration());
     }
 
-    /** Сколько тиков одна единица топлива даёт в генераторе. */
     public static long getBurnTicksPerFuel(BlockIronFurnaceTileBase genTile) {
         return FurnaceFuelHandler.getBurnTicksPerFuel(genTile);
     }
 
-    /** Подсчитывает всё топливо генератора (слот + соседние контейнеры по всем сторонам). */
     public static int countGeneratorFuel(BlockIronFurnaceTileBase genTile, Level level) {
         return FurnaceFuelHandler.countGeneratorFuel(genTile, level);
     }
 
-    /** Подсчитывает ингредиенты завода (правильные слоты под tier + контейнер сверху). */
     public static int countFactoryInputs(BlockIronFurnaceTileBase factoryTile, Level level) {
         int[] inputSlots = getFactoryInputSlots(factoryTile);
         int total = 0;
@@ -65,7 +57,6 @@ public class NetworkDataCollector {
         return total;
     }
 
-    /** Подсчитывает свободное место на выходе завода. */
     public static int countFactoryOutputSpace(BlockIronFurnaceTileBase factoryTile, Level level) {
         int[] outputSlots = new int[]{13, 14, 15, 16, 17, 18};
         int space = 0;
@@ -83,7 +74,6 @@ public class NetworkDataCollector {
         return space;
     }
 
-    /** Параметры плавки завода. */
     public static FactorySmeltParams computeFactoryParams(BlockIronFurnaceTileBase factoryTile) {
         int maxRfPerItem = 0;
         int totalRfPerTick = 0;
@@ -103,10 +93,6 @@ public class NetworkDataCollector {
                     acc.invokeGetRecipeFactory(slot, input);
             if (recipeOpt.isEmpty()) continue;
 
-            // Оригинальный Iron Furnaces tick():
-            //   rfPerItem = recipe.getCookingTime() * 20
-            //   if (hasSpeed) rfPerItem *= 2;
-            //   if (hasFuel) rfPerItem /= 2;
             int baseRecipeTime = recipeOpt.get().getCookingTime();
             int rfPerItem = baseRecipeTime * 20;
             if (hasSpeed) rfPerItem *= 2;
@@ -127,11 +113,9 @@ public class NetworkDataCollector {
         return p;
     }
 
-    /** Агрегирует ресурсы из сети печей. */
     public static NetworkResources aggregateNetwork(FurnaceNetwork network, Level level) {
         NetworkResources nr = new NetworkResources();
 
-        // Генераторы
         long totalBurnSum = 0;
         long totalGenRfPerTick = 0;
         for (BlockIronFurnaceTileBase gen : network.generators) {
@@ -141,14 +125,13 @@ public class NetworkDataCollector {
             int rfPerTick = getGeneratorRfPerTick(gen);
             nr.totalRfPerTick += rfPerTick;
             long burnTicks = getBurnTicksPerFuel(gen);
-            totalBurnSum += burnTicks * rfPerTick; // взвешенное по RF/tick
+            totalBurnSum += burnTicks * rfPerTick;
             totalGenRfPerTick += rfPerTick;
         }
         nr.totalAvgBurnTicksPerFuel = totalGenRfPerTick > 0
                 ? (int) (totalBurnSum / totalGenRfPerTick)
                 : 1200;
 
-        // Заводы
         for (BlockIronFurnaceTileBase factory : network.factories) {
             nr.totalSmeltableItems += countFactoryInputs(factory, level);
             nr.totalOutputSpace += countFactoryOutputSpace(factory, level);

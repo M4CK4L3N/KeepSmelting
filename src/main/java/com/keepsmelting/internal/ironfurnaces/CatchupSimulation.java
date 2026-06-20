@@ -1,21 +1,26 @@
 package com.keepsmelting.internal.ironfurnaces;
 
-import com.keepsmelting.internal.ironfurnaces.SimulationData.FactorySmeltParams;
-import com.keepsmelting.internal.ironfurnaces.SimulationData.NetworkResources;
-import com.keepsmelting.internal.ironfurnaces.SimulationData.SimulationResult;
+import com.keepsmelting.internal.ironfurnaces.apply.SimulationApplicator;
+import com.keepsmelting.internal.ironfurnaces.collect.NetworkDataCollector;
+import com.keepsmelting.internal.ironfurnaces.data.SimulationData.FactorySmeltParams;
+import com.keepsmelting.internal.ironfurnaces.data.SimulationData.NetworkResources;
+import com.keepsmelting.internal.ironfurnaces.data.SimulationData.SimulationResult;
+import com.keepsmelting.internal.ironfurnaces.simulate.SimulationEngine;
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 
 /**
  * Фасад для симуляции Iron Furnaces.
- * Делегирует Phase 1 → NetworkDataCollector, Phase 2 → SimulationEngine, Phase 3 → SimulationApplicator.
+ * Phase 1 → {@link NetworkDataCollector}
+ * Phase 2 → {@link SimulationEngine}
+ * Phase 3 → {@link SimulationApplicator}
  */
 public class CatchupSimulation {
 
     private CatchupSimulation() {}
 
-    // ========== PHASE 1: COUNT (делегировано NetworkDataCollector) ==========
+    // ========== PHASE 1 ==========
 
     public static int[] getFactoryInputSlots(BlockIronFurnaceTileBase factoryTile) {
         return NetworkDataCollector.getFactoryInputSlots(factoryTile);
@@ -49,7 +54,7 @@ public class CatchupSimulation {
         return NetworkDataCollector.aggregateNetwork(network, level);
     }
 
-    // ========== PHASE 2: SIMULATE (делегировано SimulationEngine) ==========
+    // ========== PHASE 2 ==========
 
     public static SimulationResult simulateNetwork(NetworkResources nr, long elapsedTicks) {
         return SimulationEngine.simulateNetwork(nr, elapsedTicks);
@@ -84,7 +89,7 @@ public class CatchupSimulation {
                 factoryCapacity, factoryCurrentRf, elapsedTicks);
     }
 
-    // ========== PHASE 3: APPLY (делегировано SimulationApplicator) ==========
+    // ========== PHASE 3 ==========
 
     public static void distributeToNetwork(NetworkResources nr, SimulationResult r, Level level) {
         SimulationApplicator.distributeToNetwork(nr, r, level);
