@@ -2,7 +2,7 @@ package com.keepsmelting.mixin.ironfurnaces;
 
 import com.keepsmelting.KeepSmeltingConfig;
 import com.keepsmelting.api.CatchupHandlerRegistry;
-import com.keepsmelting.internal.ironfurnaces.CatchupDedup;
+import com.keepsmelting.internal.ironfurnaces.util.CatchupDedup;
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;

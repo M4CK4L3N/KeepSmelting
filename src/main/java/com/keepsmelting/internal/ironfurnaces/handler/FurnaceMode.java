@@ -1,4 +1,4 @@
-package com.keepsmelting.internal.ironfurnaces;
+package com.keepsmelting.internal.ironfurnaces.handler;
 
 import com.keepsmelting.internal.catchup.AbstractCatchupHandler;
 import com.keepsmelting.mixin.ironfurnaces.IronFurnaceAccessor;
