@@ -25,7 +25,7 @@ public class CatchupDedup {
     public static boolean checkNewTick(long gameTime) {
         if (gameTime != lastTickCleared) {
             processedThisTick.clear();
-            com.keepsmelting.internal.catchup.AbstractCatchupHandler.clearDebugDedup();
+            com.keepsmelting.api.catchup.AbstractCatchupHandler.clearDebugDedup();
             lastTickCleared = gameTime;
             return true;
         }

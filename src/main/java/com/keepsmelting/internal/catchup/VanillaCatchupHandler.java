@@ -3,6 +3,7 @@ package com.keepsmelting.internal.catchup;
 import com.keepsmelting.KeepSmelting;
 import com.keepsmelting.KeepSmeltingConfig;
 import com.keepsmelting.api.CatchupHandlerRegistry;
+import com.keepsmelting.api.catchup.AbstractCatchupHandler;
 import com.keepsmelting.api.IFurnaceCatchupHandler;
 import com.keepsmelting.mixin.IFurnaceAccessor;
 import net.minecraft.core.BlockPos;

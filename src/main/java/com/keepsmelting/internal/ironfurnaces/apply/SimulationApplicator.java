@@ -7,7 +7,7 @@ import com.keepsmelting.internal.ironfurnaces.data.SimulationData.NetworkResourc
 import com.keepsmelting.internal.ironfurnaces.data.SimulationData.SimulationResult;
 import com.keepsmelting.internal.ironfurnaces.util.FurnaceFuelHandler;
 import com.keepsmelting.internal.ironfurnaces.util.HopperHelper;
-import com.keepsmelting.internal.catchup.AbstractCatchupHandler;
+import com.keepsmelting.api.catchup.AbstractCatchupHandler;
 import com.keepsmelting.mixin.ironfurnaces.IronFurnaceAccessor;
 import ironfurnaces.items.augments.ItemAugmentFuel;
 import ironfurnaces.items.augments.ItemAugmentSpeed;

@@ -1,6 +1,6 @@
 package com.keepsmelting.internal.ironfurnaces.handler;
 
-import com.keepsmelting.internal.catchup.AbstractCatchupHandler;
+import com.keepsmelting.api.catchup.AbstractCatchupHandler;
 import com.keepsmelting.mixin.ironfurnaces.IronFurnaceAccessor;
 import ironfurnaces.items.augments.ItemAugmentFuel;
 import ironfurnaces.items.augments.ItemAugmentSpeed;

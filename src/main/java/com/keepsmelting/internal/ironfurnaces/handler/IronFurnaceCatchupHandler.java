@@ -1,6 +1,6 @@
 package com.keepsmelting.internal.ironfurnaces.handler;
 
-import com.keepsmelting.internal.catchup.AbstractCatchupHandler;
+import com.keepsmelting.api.catchup.AbstractCatchupHandler;
 import com.keepsmelting.internal.ironfurnaces.CatchupSimulation;
 import com.keepsmelting.internal.ironfurnaces.collect.FurnaceNetwork;
 import com.keepsmelting.internal.ironfurnaces.data.SimulationData.FactorySmeltParams;

@@ -1,4 +1,4 @@
-package com.keepsmelting.internal.catchup;
+package com.keepsmelting.api.catchup;
 
 import com.keepsmelting.KeepSmeltingConfig;
 import com.keepsmelting.api.IFurnaceCatchupHandler;
@@ -15,16 +15,30 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Базовый класс для catchup-хендлеров.
+ * <p>
+ * Внешние моды наследуют этот класс для поддержки своих печей:
+ * <pre>
+ * public class MyHandler extends AbstractCatchupHandler {
+ *     {@literal @}Override
+ *     public void applyCatchup(BlockEntity tile, long elapsed, Level level, BlockPos pos) {
+ *         // твоя логика догонялки
+ *     }
+ * }
+ * </pre>
+ * <p>
+ * Предоставляет готовую реализацию:
+ * <ul>
+ *   <li>{@link #calcElapsed(Level, long)} — расчёт пропущенных тиков</li>
+ *   <li>{@link #saveTime(BlockEntity, CompoundTag)} / {@link #loadTime(BlockEntity, CompoundTag)}</li>
+ *   <li>{@link #sendChatDebug(Level, BlockPos, String, long, int, int, int, int, boolean)}</li>
+ * </ul>
+ */
 public abstract class AbstractCatchupHandler implements IFurnaceCatchupHandler {
 
     private static final String TAG_LAST_TIME = "keepsmelting_lastRealTime";
 
-    /**
-     * Дедупликация debug-сообщений в рамках одного тика.
-     * Предотвращает двойную отправку для одной и той же печи
-     * (например, когда сеть обрабатывает Generator через distributeToNetwork,
-     * и Generator также получает свой собственный catchup-тик).
-     */
     private static final Set<BlockPos> DEBUG_SENT_THIS_TICK = new HashSet<>();
 
     protected long lastRealTime;
@@ -82,7 +96,6 @@ public abstract class AbstractCatchupHandler implements IFurnaceCatchupHandler {
         if (dm == KeepSmeltingConfig.DebugMode.OFF) return;
         if (!(level instanceof ServerLevel serverLevel)) return;
 
-        // Дедупликация: если для этой позиции уже отправили debug в этом тике — пропускаем
         if (DEBUG_SENT_THIS_TICK.contains(pos)) return;
         DEBUG_SENT_THIS_TICK.add(pos);
 
@@ -106,10 +119,6 @@ public abstract class AbstractCatchupHandler implements IFurnaceCatchupHandler {
         }
     }
 
-    /**
-     * Очищает кэш дедупликации debug-сообщений.
-     * Должен вызываться раз в тик (например, из mixin'ов до обработки catchup).
-     */
     public static void clearDebugDedup() {
         DEBUG_SENT_THIS_TICK.clear();
     }

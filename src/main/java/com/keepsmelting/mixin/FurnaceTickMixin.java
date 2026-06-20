@@ -53,7 +53,7 @@ public abstract class FurnaceTickMixin {
         if (world.isClientSide) return;
 
         // Очищаем кэш дедупликации debug-сообщений каждый тик
-        com.keepsmelting.internal.catchup.AbstractCatchupHandler.clearDebugDedup();
+        com.keepsmelting.api.catchup.AbstractCatchupHandler.clearDebugDedup();
 
         if (!KeepSmeltingConfig.COMMON.catchupEnabled.get()) return;
 
