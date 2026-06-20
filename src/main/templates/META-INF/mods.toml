@@ -9,6 +9,8 @@ displayName="${mod_name}"
 authors="${mod_authors}"
 description='''${mod_description}'''
 logoFile="icon.png"
+displayURL="${mod_display_url}"
+issueTrackerURL="${mod_issue_tracker_url}"
 
 [[dependencies.${mod_id}]]
     modId="forge"

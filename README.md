@@ -1,5 +1,9 @@
 # KeepSmelting
 
+[![CurseForge](https://img.shields.io/badge/CurseForge-keepsmelting-orange?style=flat-square)](https://www.curseforge.com/minecraft/mc-mods/keepsmelting)
+[![Modrinth](https://img.shields.io/badge/Modrinth-keepsmelting-green?style=flat-square)](https://modrinth.com/mod/keepsmelting)
+[![GitHub](https://img.shields.io/badge/GitHub-M4CK4L3N/KeepSmelting-181717?style=flat-square&logo=github)](https://github.com/M4CK4L3N/KeepSmelting)
+
 Furnaces keep smelting even when you are offline. Uses real-world time to calculate how many items would have been cooked.
 
 ## Features
