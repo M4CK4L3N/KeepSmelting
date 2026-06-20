@@ -1,6 +1,9 @@
 package com.keepsmelting.internal.ironfurnaces;
 
 import com.keepsmelting.internal.catchup.AbstractCatchupHandler;
+import com.keepsmelting.internal.ironfurnaces.SimulationData.FactorySmeltParams;
+import com.keepsmelting.internal.ironfurnaces.SimulationData.NetworkResources;
+import com.keepsmelting.internal.ironfurnaces.SimulationData.SimulationResult;
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
@@ -29,7 +32,7 @@ public class IronFurnaceCatchupHandler extends AbstractCatchupHandler {
         long burnTicksPerFuel = CatchupSimulation.getBurnTicksPerFuel(genTile);
         int rfPerTick = CatchupSimulation.getGeneratorRfPerTick(genTile);
 
-        CatchupSimulation.SimulationResult result = CatchupSimulation.simulateGeneratorOnly(
+        SimulationResult result = CatchupSimulation.simulateGeneratorOnly(
                 totalFuel, burnTicksPerFuel, rfPerTick,
                 genTile.getCapacity(), genTile.getEnergy(), elapsed);
 
@@ -47,10 +50,10 @@ public class IronFurnaceCatchupHandler extends AbstractCatchupHandler {
             // Нет сети — просто завод
             int totalSmeltable = CatchupSimulation.countFactoryInputs(factoryTile, level);
             int outputSpace = CatchupSimulation.countFactoryOutputSpace(factoryTile, level);
-            CatchupSimulation.FactorySmeltParams params =
+            FactorySmeltParams params =
                     CatchupSimulation.computeFactoryParams(factoryTile);
 
-            CatchupSimulation.SimulationResult result = CatchupSimulation.simulateFactoryOnly(
+            SimulationResult result = CatchupSimulation.simulateFactoryOnly(
                     totalSmeltable, outputSpace,
                     params.maxRfPerItem, params.totalRfPerTick, params.maxCookTime,
                     factoryTile.getEnergy(), elapsed);
@@ -60,11 +63,11 @@ public class IronFurnaceCatchupHandler extends AbstractCatchupHandler {
         }
 
         // Aggregate: суммировать ресурсы всей сети
-        CatchupSimulation.NetworkResources nr =
+        NetworkResources nr =
                 CatchupSimulation.aggregateNetwork(network, level);
 
         // Simulate: 1 проход
-        CatchupSimulation.SimulationResult result =
+        SimulationResult result =
                 CatchupSimulation.simulateNetwork(nr, elapsed);
 
         // Distribute: применить ко всем печам в сети
