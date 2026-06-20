@@ -1,11 +1,11 @@
-package com.keepsmelting.internal.ironfurnaces;
+package com.keepsmelting.internal.ironfurnaces.handler;
 
 import com.keepsmelting.internal.catchup.AbstractCatchupHandler;
+import com.keepsmelting.internal.ironfurnaces.CatchupSimulation;
 import com.keepsmelting.internal.ironfurnaces.collect.FurnaceNetwork;
 import com.keepsmelting.internal.ironfurnaces.data.SimulationData.FactorySmeltParams;
 import com.keepsmelting.internal.ironfurnaces.data.SimulationData.NetworkResources;
 import com.keepsmelting.internal.ironfurnaces.data.SimulationData.SimulationResult;
-import com.keepsmelting.internal.ironfurnaces.handler.FurnaceMode;
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;

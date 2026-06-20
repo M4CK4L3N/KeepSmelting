@@ -2,7 +2,7 @@ package com.keepsmelting;
 
 import com.keepsmelting.api.CatchupHandlerRegistry;
 import com.keepsmelting.command.KeepSmeltingCommand;
-import com.keepsmelting.internal.ironfurnaces.IronFurnaceCatchupHandler;
+import com.keepsmelting.internal.ironfurnaces.handler.IronFurnaceCatchupHandler;
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
