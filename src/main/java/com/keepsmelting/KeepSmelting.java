@@ -1,14 +1,12 @@
 package com.keepsmelting;
 
 import com.keepsmelting.api.CatchupHandlerRegistry;
-import com.keepsmelting.command.IronFurnaceCommands;
 import com.keepsmelting.command.KeepSmeltingCommand;
 import com.keepsmelting.internal.ironfurnaces.handler.IronFurnaceCatchupHandler;
 import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -38,12 +36,8 @@ public class KeepSmelting {
 
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> {
-            boolean loaded = ModList.get().isLoaded("ironfurnaces");
             KeepSmeltingCommand.register(event.getDispatcher());
-            if (loaded) {
-                IronFurnaceCommands.register(event.getDispatcher());
-            }
-            LOGGER.info("KeepSmelting commands registered (ironfurnaces={})", loaded);
+            LOGGER.info("KeepSmelting commands registered");
         });
     }
 
