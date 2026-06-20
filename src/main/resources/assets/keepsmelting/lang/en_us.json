@@ -1,0 +1,23 @@
+{
+  "itemGroup.keepsmelting": "KeepSmelting",
+
+  "command.keepsmelting.prefix": "[KeepSmelting]",
+
+  "command.keepsmelting.catchup.success": "Catchup set to: %s",
+  "command.keepsmelting.maxTicks.success": "Max ticks set to: %d",
+  "command.keepsmelting.minDelta.success": "Min delta set to: %d",
+  "command.keepsmelting.debug.success": "Debug mode set to: %s",
+  "command.keepsmelting.time.success": "Time mode set to: %s",
+
+  "command.keepsmelting.debug.error.invalid": "Invalid debug mode. Use: OFF, CHAT, or LOG",
+  "command.keepsmelting.time.error.invalid": "Invalid time mode. Use: REALTIME or GAMETIME",
+
+  "command.keepsmelting.status": "catchup=%s | maxTicks=%d | minDelta=%d | debug=%s | time=%s",
+
+  "command.keepsmelting.help.status": "/keepsmelting status — show current settings",
+  "command.keepsmelting.help.catchup": "/keepsmelting catchup <true|false> — toggle offline catchup",
+  "command.keepsmelting.help.maxTicks": "/keepsmelting maxTicks <1-192000> — max offline ticks to simulate",
+  "command.keepsmelting.help.minDelta": "/keepsmelting minDelta <1-72000> — min tick gap to trigger catchup",
+  "command.keepsmelting.help.debug": "/keepsmelting debug <OFF|CHAT|LOG> — debug output mode",
+  "command.keepsmelting.help.time": "/keepsmelting time <REALTIME|GAMETIME> — time tracking mode"
+}

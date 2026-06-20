@@ -61,7 +61,7 @@ public class KeepSmeltingCommand {
         KeepSmeltingConfig.COMMON.catchupEnabled.set(value);
         KeepSmeltingConfig.COMMON.catchupEnabled.save();
         ctx.getSource().sendSuccess(() ->
-                Component.literal(String.format("§7[§6KeepSmelting§7] catchup §a→ §f%b", value)),
+                Component.translatable("command.keepsmelting.prefix").append(" catchup §a→ §f" + value),
                 true);
         return 1;
     }
@@ -70,7 +70,7 @@ public class KeepSmeltingCommand {
         KeepSmeltingConfig.COMMON.maxCatchupTicks.set(value);
         KeepSmeltingConfig.COMMON.maxCatchupTicks.save();
         ctx.getSource().sendSuccess(() ->
-                Component.literal(String.format("§7[§6KeepSmelting§7] maxTicks §a→ §f%d", value)),
+                Component.translatable("command.keepsmelting.prefix").append(" maxTicks §a→ §f" + value),
                 true);
         return 1;
     }
@@ -79,7 +79,7 @@ public class KeepSmeltingCommand {
         KeepSmeltingConfig.COMMON.minDeltaThreshold.set(value);
         KeepSmeltingConfig.COMMON.minDeltaThreshold.save();
         ctx.getSource().sendSuccess(() ->
-                Component.literal(String.format("§7[§6KeepSmelting§7] minDelta §a→ §f%d", value)),
+                Component.translatable("command.keepsmelting.prefix").append(" minDelta §a→ §f" + value),
                 true);
         return 1;
     }
@@ -91,13 +91,13 @@ public class KeepSmeltingCommand {
             dm = KeepSmeltingConfig.DebugMode.valueOf(upper);
         } catch (IllegalArgumentException e) {
             ctx.getSource().sendFailure(
-                    Component.literal("§7[§6KeepSmelting§7] §cInvalid mode. Use: OFF, CHAT, or LOG"));
+                    Component.translatable("command.keepsmelting.prefix").append(" §c").append(Component.translatable("command.keepsmelting.debug.error.invalid")));
             return 0;
         }
         KeepSmeltingConfig.COMMON.debugMode.set(dm);
         KeepSmeltingConfig.COMMON.debugMode.save();
         ctx.getSource().sendSuccess(() ->
-                Component.literal(String.format("§7[§6KeepSmelting§7] debug §a→ §f%s", dm)),
+                Component.translatable("command.keepsmelting.prefix").append(" debug §a→ §f" + dm),
                 true);
         return 1;
     }
@@ -109,13 +109,13 @@ public class KeepSmeltingCommand {
             tm = KeepSmeltingConfig.TimeMode.valueOf(upper);
         } catch (IllegalArgumentException e) {
             ctx.getSource().sendFailure(
-                    Component.literal("§7[§6KeepSmelting§7] §cInvalid mode. Use: REALTIME or GAMETIME"));
+                    Component.translatable("command.keepsmelting.prefix").append(" §c").append(Component.translatable("command.keepsmelting.time.error.invalid")));
             return 0;
         }
         KeepSmeltingConfig.COMMON.timeMode.set(tm);
         KeepSmeltingConfig.COMMON.timeMode.save();
         ctx.getSource().sendSuccess(() ->
-                Component.literal(String.format("§7[§6KeepSmelting§7] time §a→ §f%s", tm)),
+                Component.translatable("command.keepsmelting.prefix").append(" time §a→ §f" + tm),
                 true);
         return 1;
     }
@@ -128,31 +128,37 @@ public class KeepSmeltingCommand {
         KeepSmeltingConfig.TimeMode tm = KeepSmeltingConfig.COMMON.timeMode.get();
 
         ctx.getSource().sendSuccess(() ->
-                Component.literal(String.format(
-                        "§7[§6KeepSmelting§7] §fcatchup=%s §7| §emaxTicks=%d §7| §fminDelta=%d §7| §fdebug=%s §7| §ftime=%s",
-                        enabled, maxTicks, minDelta, dm, tm)),
+                Component.translatable("command.keepsmelting.prefix")
+                        .append(" §f")
+                        .append(Component.translatable("command.keepsmelting.status", enabled, maxTicks, minDelta, dm, tm)),
                 false);
         return 1;
     }
 
     private static int showHelp(CommandContext<CommandSourceStack> ctx) {
         ctx.getSource().sendSuccess(() ->
-                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting status §7— show settings"),
+                Component.translatable("command.keepsmelting.prefix")
+                        .append(" §e").append(Component.translatable("command.keepsmelting.help.status")),
                 false);
         ctx.getSource().sendSuccess(() ->
-                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting catchup <true|false> §7— toggle catchup"),
+                Component.translatable("command.keepsmelting.prefix")
+                        .append(" §e").append(Component.translatable("command.keepsmelting.help.catchup")),
                 false);
         ctx.getSource().sendSuccess(() ->
-                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting maxTicks <1-192000> §7— max offline ticks"),
+                Component.translatable("command.keepsmelting.prefix")
+                        .append(" §e").append(Component.translatable("command.keepsmelting.help.maxTicks")),
                 false);
         ctx.getSource().sendSuccess(() ->
-                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting minDelta <1-72000> §7— min tick gap to trigger"),
+                Component.translatable("command.keepsmelting.prefix")
+                        .append(" §e").append(Component.translatable("command.keepsmelting.help.minDelta")),
                 false);
         ctx.getSource().sendSuccess(() ->
-                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting debug <OFF|CHAT|LOG> §7— debug output mode"),
+                Component.translatable("command.keepsmelting.prefix")
+                        .append(" §e").append(Component.translatable("command.keepsmelting.help.debug")),
                 false);
         ctx.getSource().sendSuccess(() ->
-                Component.literal("§7[§6KeepSmelting§7] §e/keepsmelting time <REALTIME|GAMETIME> §7— time tracking mode"),
+                Component.translatable("command.keepsmelting.prefix")
+                        .append(" §e").append(Component.translatable("command.keepsmelting.help.time")),
                 false);
         return 1;
     }

@@ -13,6 +13,7 @@ Furnaces keep smelting even when you are offline. Uses real-world time to calcul
 - 📦 **Hopper I/O** — auto-pulls input/fuel from adjacent containers, pushes output below
 - 🛠️ **API for other mods** — add KeepSmelting support to your custom furnace
 - 🔧 **Configurable** — `/keepsmelting` commands
+- 🌍 **Multi-language** — English and Russian supported
 
 ## Installation
 
@@ -128,7 +129,30 @@ KeepSmeltingConfig.COMMON.catchupEnabled.set(true);
 KeepSmeltingConfig.COMMON.timeMode.set(TimeMode.REALTIME);
 ```
 
+## Localization
+
+KeepSmelting supports multiple languages:
+
+| Language | File |
+|---|---|
+| 🇬🇧 English | [`en_us.json`](src/main/resources/assets/keepsmelting/lang/en_us.json) |
+| 🇷🇺 Russian | [`ru_ru.json`](src/main/resources/assets/keepsmelting/lang/ru_ru.json) |
+
+The game language is detected automatically. All commands, help messages and status output are translated.
+
+## Contributing Translations
+
+To add a new language:
+
+1. Copy [`en_us.json`](src/main/resources/assets/keepsmelting/lang/en_us.json) to `assets/keepsmelting/lang/<locale>.json`
+2. Translate the values (keep the keys unchanged)
+3. Submit a pull request
+
 ## License
 
 MIT © M4CK4L3N
+
+---
+
+[🇷🇺 Русская документация](README_ru.md)
 

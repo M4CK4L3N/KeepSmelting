@@ -1,0 +1,23 @@
+{
+  "itemGroup.keepsmelting": "KeepSmelting",
+
+  "command.keepsmelting.prefix": "[KeepSmelting]",
+
+  "command.keepsmelting.catchup.success": "Catchup: %s",
+  "command.keepsmelting.maxTicks.success": "Макс. тиков: %d",
+  "command.keepsmelting.minDelta.success": "Мин. дельта: %d",
+  "command.keepsmelting.debug.success": "Режим отладки: %s",
+  "command.keepsmelting.time.success": "Режим времени: %s",
+
+  "command.keepsmelting.debug.error.invalid": "Неверный режим отладки. Используйте: OFF, CHAT или LOG",
+  "command.keepsmelting.time.error.invalid": "Неверный режим времени. Используйте: REALTIME или GAMETIME",
+
+  "command.keepsmelting.status": "catchup=%s | maxTicks=%d | minDelta=%d | debug=%s | time=%s",
+
+  "command.keepsmelting.help.status": "/keepsmelting status — показать текущие настройки",
+  "command.keepsmelting.help.catchup": "/keepsmelting catchup <true|false> — вкл/выкл офлайн-догонялку",
+  "command.keepsmelting.help.maxTicks": "/keepsmelting maxTicks <1-192000> — макс. тиков для симуляции офлайн",
+  "command.keepsmelting.help.minDelta": "/keepsmelting minDelta <1-72000> — мин. разрыв тиков для запуска",
+  "command.keepsmelting.help.debug": "/keepsmelting debug <OFF|CHAT|LOG> — режим вывода отладки",
+  "command.keepsmelting.help.time": "/keepsmelting time <REALTIME|GAMETIME> — режим отслеживания времени"
+}
