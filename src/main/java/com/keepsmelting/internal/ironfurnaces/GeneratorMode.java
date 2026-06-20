@@ -100,16 +100,102 @@ public class GeneratorMode {
                 0, 0, tile.generatorBurn > 0.0);
     }
 
-    public static void processNeighborGenerators(BlockIronFurnaceTileBase tile, long elapsed,
+    /**
+     * Догоняет соседние генераторы, которые отдают RF заводу.
+     * В отличие от apply(), не упирается в capacity — избыток RF
+     * передаётся соседнему заводу. Повторяет цикл генерация → передача,
+     * пока не закончится elapsed-время.
+     */
+    public static void processNeighborGenerators(BlockIronFurnaceTileBase factoryTile, long elapsed,
                                                   Level level, BlockPos pos) {
-        // Unused in current flow — called from IronFurnaceCatchupHandler if factory mode
         for (Direction dir : Direction.Plane.HORIZONTAL) {
             BlockPos neighbor = pos.relative(dir);
             if (!level.isLoaded(neighbor)) continue;
             BlockEntity be = level.getBlockEntity(neighbor);
-            if (be instanceof BlockIronFurnaceTileBase genTile && genTile.isGenerator()) {
-                apply(genTile, elapsed, level, neighbor);
+            if (!(be instanceof BlockIronFurnaceTileBase genTile) || !genTile.isGenerator()) continue;
+
+            // Проверяем, что генератор отдаёт RF на завод
+            Direction genSide = dir.getOpposite();
+            int setting = genTile.furnaceSettings.get(genSide.ordinal());
+            if (setting != 2 && setting != 3) continue;
+
+            IronFurnaceAccessor acc = (IronFurnaceAccessor) genTile;
+            long remaining = elapsed;
+            int fuelConsumed = 0;
+
+            while (remaining > 0) {
+                // Шаг 1: зажечь топливо если прогорело
+                if (genTile.generatorBurn <= 0.0) {
+                    ItemStack fuel = genTile.inventory.get(6);
+                    if (fuel.isEmpty()) {
+                        acc.invokeAutoIOGenerator();
+                        fuel = genTile.inventory.get(6);
+                        if (fuel.isEmpty()) break;
+                    }
+                    genTile.generatorBurn = genTile.getGeneratorBurn();
+                    genTile.generatorRecentRecipeRF = (int) genTile.generatorBurn;
+                    fuelConsumed++;
+                    if (fuel.hasCraftingRemainingItem()) {
+                        genTile.inventory.set(6, fuel.getCraftingRemainingItem());
+                    } else {
+                        fuel.shrink(1);
+                        if (fuel.isEmpty()) {
+                            genTile.inventory.set(6, fuel.getCraftingRemainingItem());
+                        }
+                    }
+                    genTile.setChanged();
+                }
+                if (genTile.generatorBurn <= 0.0) break;
+
+                int gen = genTile.getGeneration();
+                if (gen <= 0) break;
+
+                long ticksThisBurn = (long) Math.ceil(genTile.generatorBurn * 20.0 / gen);
+                long batch = Math.min(remaining, ticksThisBurn);
+                if (batch <= 0) batch = 1;
+
+                double totalGen = gen * batch;
+                double totalBurn = gen / 20.0 * batch;
+
+                genTile.gottenRF += totalGen;
+                genTile.generatorBurn -= totalBurn;
+
+                // Шаг 2: наполнить генератор до capacity
+                int genCap = genTile.getCapacity();
+                int totalGenInt = (int) totalGen;
+                int spaceInGen = genCap - genTile.getEnergy();
+
+                if (spaceInGen >= totalGenInt) {
+                    // Всё RF влезает в генератор
+                    genTile.setEnergy(genTile.getEnergy() + totalGenInt);
+                } else {
+                    // Генератор забит, часть RF — заводу
+                    if (spaceInGen > 0) {
+                        genTile.setEnergy(genCap);
+                    }
+                    int toFactory = totalGenInt - Math.max(0, spaceInGen);
+                    int factoryFree = factoryTile.getCapacity() - factoryTile.getEnergy();
+                    if (factoryFree > 0 && toFactory > 0) {
+                        int pushNow = Math.min(factoryFree, toFactory);
+                        factoryTile.setEnergy(factoryTile.getEnergy() + pushNow);
+                        factoryTile.setChanged();
+                    }
+                }
+
+                if (genTile.generatorBurn <= 0.0) {
+                    genTile.gottenRF = 0.0;
+                    acc.invokeAutoIOGenerator();
+                    genTile.generatorBurn = 0.0;
+                }
+
+                remaining -= batch;
+                genTile.setChanged();
             }
+
+            AbstractCatchupHandler.sendChatDebug(level, neighbor, "Generator", elapsed,
+                    fuelConsumed,
+                    genTile.getEnergy(),
+                    0, 0, genTile.generatorBurn > 0.0);
         }
     }
 
