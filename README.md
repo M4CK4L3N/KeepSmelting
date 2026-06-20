@@ -69,69 +69,24 @@ All 13 furnace tiers + 3 modes
 
 ## API for Other Mods
 
-### Add KeepSmelting support to your custom furnace
+See [docs/API_USAGE.md](docs/API_USAGE.md) for full integration guide.
 
-Add KeepSmelting as a dependency in your `build.gradle`:
-
-```groovy
-repositories {
-    flatDir { dirs 'libs' }
-}
-dependencies {
-    implementation 'com.keepsmelting:keepsmelting:1.0.0'
-}
-```
-
-Implement the handler:
+Quick example:
 
 ```java
-import com.keepsmelting.api.IFurnaceCatchupHandler;
-import com.keepsmelting.api.CatchupHandlerRegistry;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.nbt.CompoundTag;
-
-public class MyFurnaceHandler implements IFurnaceCatchupHandler {
+// 1. Extend AbstractCatchupHandler (handles saveTime/loadTime/calcElapsed for you)
+public class MyHandler extends AbstractCatchupHandler {
     @Override
     public void applyCatchup(BlockEntity tile, long elapsed, Level level, BlockPos pos) {
-        MyFurnaceTile ft = (MyFurnaceTile) tile;
-        // Your catchup logic here
-        // elapsed = ticks to simulate
-        // Delegate to your furnace's native cook/burn methods
-    }
-    
-    @Override
-    public void saveTime(BlockEntity tile, CompoundTag tag) {
-        // Save your time tracker to NBT
-    }
-    
-    @Override
-    public void loadTime(BlockEntity tile, CompoundTag tag) {
-        // Load your time tracker from NBT
+        // Your catchup logic
     }
 }
+
+// 2. Register
+CatchupHandlerRegistry.register(MyTile.class, new MyHandler());
 ```
 
-Register in your `@Mod` constructor:
-
-```java
-@Mod("mymod")
-public class MyMod {
-    public MyMod() {
-        CatchupHandlerRegistry.register(MyFurnaceTile.class, new MyFurnaceHandler());
-    }
-}
-```
-
-That's it. When KeepSmelting is installed, it will find your handler and delegate catchup to it.
-
-### Change the time mode and other settings
-
-```java
-KeepSmeltingConfig.COMMON.catchupEnabled.set(true);
-KeepSmeltingConfig.COMMON.timeMode.set(TimeMode.REALTIME);
-```
+That's it. KeepSmelting will find your handler automatically.
 
 ## Localization
 

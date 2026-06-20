@@ -69,69 +69,24 @@ timeMode = "REALTIME"
 
 ## API для других модов
 
-### Добавьте поддержку KeepSmelting в свою кастомную печь
+Полное руководство: [docs/API_USAGE_ru.md](docs/API_USAGE_ru.md)
 
-Добавьте KeepSmelting как зависимость в `build.gradle`:
-
-```groovy
-repositories {
-    flatDir { dirs 'libs' }
-}
-dependencies {
-    implementation 'com.keepsmelting:keepsmelting:1.0.0'
-}
-```
-
-Реализуйте обработчик:
+Быстрый старт:
 
 ```java
-import com.keepsmelting.api.IFurnaceCatchupHandler;
-import com.keepsmelting.api.CatchupHandlerRegistry;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.nbt.CompoundTag;
-
-public class MyFurnaceHandler implements IFurnaceCatchupHandler {
+// 1. Наследуйте AbstractCatchupHandler (saveTime/loadTime/calcElapsed уже готовы)
+public class MyHandler extends AbstractCatchupHandler {
     @Override
     public void applyCatchup(BlockEntity tile, long elapsed, Level level, BlockPos pos) {
-        MyFurnaceTile ft = (MyFurnaceTile) tile;
-        // Ваша логика догонялки здесь
-        // elapsed = количество тиков для симуляции
-        // Делегируйте нативным методам готовки/горения вашей печи
-    }
-    
-    @Override
-    public void saveTime(BlockEntity tile, CompoundTag tag) {
-        // Сохраните свой отсчёт времени в NBT
-    }
-    
-    @Override
-    public void loadTime(BlockEntity tile, CompoundTag tag) {
-        // Загрузите свой отсчёт времени из NBT
+        // Ваша логика догонялки
     }
 }
+
+// 2. Зарегистрируйте
+CatchupHandlerRegistry.register(MyTile.class, new MyHandler());
 ```
 
-Зарегистрируйте в конструкторе `@Mod`:
-
-```java
-@Mod("mymod")
-public class MyMod {
-    public MyMod() {
-        CatchupHandlerRegistry.register(MyFurnaceTile.class, new MyFurnaceHandler());
-    }
-}
-```
-
-Всё. Когда KeepSmelting установлен, он найдёт ваш обработчик и передаст ему догонялку.
-
-### Измените режим времени и другие настройки
-
-```java
-KeepSmeltingConfig.COMMON.catchupEnabled.set(true);
-KeepSmeltingConfig.COMMON.timeMode.set(TimeMode.REALTIME);
-```
+KeepSmelting найдёт ваш обработчик автоматически.
 
 ## Локализация
 
