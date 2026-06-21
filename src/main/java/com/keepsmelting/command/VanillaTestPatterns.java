@@ -5,11 +5,14 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.AbstractFurnaceBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HopperBlock;
+import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import com.keepsmelting.mixin.IFurnaceAccessor;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -82,16 +85,35 @@ public class VanillaTestPatterns {
         boolean hasChests = config.endsWith("+chest");
         String base = hasChests ? config.replace("+chest", "") : config;
 
+        // Определяем предметы для заполнения воронок
+        ItemStack inputStack = new ItemStack(Items.IRON_ORE, 64);
+        ItemStack fuelStack = new ItemStack(Items.COAL, 64);
+        if ("smoker".equals(base)) {
+            inputStack = new ItemStack(Items.BEEF, 64);
+        }
+
         switch (p.type) {
             case "hopper_into_top":
                 // Hopper pointing DOWN — в верх печи (вход: руда)
+                // Наполняем воронку рудой — VanillaHopperIO берёт из неё как из слота выше печи
                 level.setBlock(p.pos, Blocks.HOPPER.defaultBlockState()
                         .setValue(HopperBlock.FACING, Direction.DOWN), 3);
+                BlockEntity top = level.getBlockEntity(p.pos);
+                if (top instanceof net.minecraft.world.level.block.entity.HopperBlockEntity htop) {
+                    htop.setItem(0, inputStack.copy());
+                    htop.setChanged();
+                }
                 return;
             case "hopper_into_side":
                 // Hopper pointing EAST — в бок печи (топливо)
+                // Наполняем воронку углём
                 level.setBlock(p.pos, Blocks.HOPPER.defaultBlockState()
                         .setValue(HopperBlock.FACING, Direction.EAST), 3);
+                BlockEntity side = level.getBlockEntity(p.pos);
+                if (side instanceof net.minecraft.world.level.block.entity.HopperBlockEntity hside) {
+                    hside.setItem(0, fuelStack.copy());
+                    hside.setChanged();
+                }
                 return;
             case "hopper_out_of_bottom":
                 // Hopper pointing DOWN — в бочку выхода
@@ -128,12 +150,22 @@ public class VanillaTestPatterns {
                 throw new IllegalArgumentException("Unknown pattern: " + base);
         }
 
-        level.setBlock(p.pos, furnaceBlock.defaultBlockState(), 3);
+        // Кладём полные стаки — VanillaCatchupHandler тянет ресурсы только 1 раз
+        // 64 руды × 200t = 12800 ticks, 64 угля × 1600 = 102400 ticks горения
+        // На 192000 maxTicks: первые 12800t плавим руду, остальное — ничего
+        level.setBlock(p.pos, furnaceBlock.defaultBlockState()
+                .setValue(AbstractFurnaceBlock.LIT, true), 3);
 
         BlockEntity be = level.getBlockEntity(p.pos);
-        if (be instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity furnace) {
+        if (be instanceof AbstractFurnaceBlockEntity furnace) {
+            inputItem.setCount(64);
             furnace.setItem(0, inputItem);
-            furnace.setItem(1, new ItemStack(Items.COAL, 32));
+            furnace.setItem(1, new ItemStack(Items.COAL, 64));
+            IFurnaceAccessor acc = (IFurnaceAccessor) furnace;
+            acc.setLitTime(1600);
+            acc.setLitDuration(1600);
+            acc.setCookingProgress(0);
+            acc.setCookingTotalTime(base.equals("smoker") ? 100 : 200);
             furnace.setChanged();
         }
     }

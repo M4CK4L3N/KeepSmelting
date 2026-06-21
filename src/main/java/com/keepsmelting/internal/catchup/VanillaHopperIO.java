@@ -14,6 +14,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.HopperBlockEntity;
 import net.minecraftforge.common.ForgeHooks;
 
 import javax.annotation.Nullable;
@@ -21,72 +22,65 @@ import java.util.Optional;
 
 public class VanillaHopperIO {
 
+    /**
+     * Тянет smeltable предметы в input печи (слот 0) из контейнера над печью.
+     * Если над печью стоит воронка — ищет контейнер над самой воронкой,
+     * затем в самой воронке.
+     */
     public static void fillInputFromAbove(AbstractFurnaceBlockEntity furnace, ServerLevel level, BlockPos pos, int maxToPull) {
         BlockPos above = pos.above();
         if (!level.isLoaded(above)) return;
         BlockEntity be = level.getBlockEntity(above);
-        if (!(be instanceof Container source)) return;
+        if (be == null) return;
 
-        ItemStack current = furnace.getItem(0);
-        for (int i = 0; i < source.getContainerSize(); i++) {
-            ItemStack src = source.getItem(i);
-            if (src.isEmpty()) continue;
-            if (!isSmeltable(furnace, src)) continue;
-
-            int canTake = Math.min(src.getCount(), maxToPull);
-            if (canTake <= 0) continue;
-
-            if (current.isEmpty()) {
-                ItemStack taken = source.removeItem(i, Math.min(canTake, src.getMaxStackSize()));
-                if (taken.isEmpty()) continue;
-                furnace.setItem(0, taken);
-                current = taken;
-            } else if (ItemStack.isSameItemSameTags(current, src)) {
-                int space = Math.min(furnace.getMaxStackSize(), current.getMaxStackSize()) - current.getCount();
-                if (space <= 0) break;
-                int toTake = Math.min(src.getCount(), Math.min(space, maxToPull));
-                ItemStack taken = source.removeItem(i, toTake);
-                if (taken.isEmpty()) continue;
-                current.grow(taken.getCount());
-                furnace.setItem(0, current);
-            } else {
-                continue;
+        // Если над печью воронка — ищем источник над воронкой
+        if (be instanceof HopperBlockEntity) {
+            BlockPos aboveHopper = above.above();
+            if (level.isLoaded(aboveHopper)) {
+                BlockEntity sourceBe = level.getBlockEntity(aboveHopper);
+                if (sourceBe instanceof Container source) {
+                    pullSmeltableFromSource(furnace, source, maxToPull);
+                }
             }
-            source.setChanged();
-            furnace.setChanged();
+            // Затем пробуем из самой воронки
+            pullSmeltableFromSource(furnace, (Container) be, maxToPull);
             return;
+        }
+
+        // Прямой контейнер над печью
+        if (be instanceof Container source) {
+            pullSmeltableFromSource(furnace, source, maxToPull);
         }
     }
 
+    /**
+     * Тянет топливо (слот 1) с боковых сторон печи.
+     * Если сбоку стоит воронка — ищет контейнер над воронкой, затем в самой воронке.
+     */
     public static void pullFuelFromSides(AbstractFurnaceBlockEntity furnace, ServerLevel level, BlockPos pos) {
         for (Direction dir : Direction.Plane.HORIZONTAL) {
             BlockPos neighbor = pos.relative(dir);
             if (!level.isLoaded(neighbor)) continue;
             BlockEntity be = level.getBlockEntity(neighbor);
-            if (!(be instanceof Container source)) continue;
+            if (be == null) continue;
 
-            ItemStack current = furnace.getItem(1);
-            for (int i = 0; i < source.getContainerSize(); i++) {
-                ItemStack src = source.getItem(i);
-                if (src.isEmpty()) continue;
-                if (ForgeHooks.getBurnTime(src, RecipeType.SMELTING) <= 0) continue;
-
-                ItemStack extracted = source.removeItem(i, 1);
-                if (extracted.isEmpty()) continue;
-
-                if (current.isEmpty()) {
-                    furnace.setItem(1, extracted);
-                } else if (ItemStack.isSameItemSameTags(current, extracted)
-                        && current.getCount() < current.getMaxStackSize()) {
-                    current.grow(1);
-                    furnace.setItem(1, current);
-                } else {
-                    source.setItem(i, extracted);
-                    continue;
+            // Если сбоку воронка — ищем контейнер над ней
+            if (be instanceof HopperBlockEntity) {
+                BlockPos aboveHopper = neighbor.above();
+                if (level.isLoaded(aboveHopper)) {
+                    BlockEntity sourceBe = level.getBlockEntity(aboveHopper);
+                    if (sourceBe instanceof Container source) {
+                        if (pullFuelFromContainer(furnace, source)) return;
+                    }
                 }
-                source.setChanged();
-                furnace.setChanged();
-                return;
+                // Затем из самой воронки
+                if (pullFuelFromContainer(furnace, (Container) be)) return;
+                continue;
+            }
+
+            // Прямой контейнер сбоку
+            if (be instanceof Container source) {
+                if (pullFuelFromContainer(furnace, source)) return;
             }
         }
     }
@@ -103,6 +97,39 @@ public class VanillaHopperIO {
         int maxStack = output.getMaxStackSize();
         int toTransfer = Math.min(output.getCount(), maxItems);
         if (toTransfer <= 0) return;
+
+        // Если под печью воронка — кладём в неё
+        if (be instanceof HopperBlockEntity hopper) {
+            for (int i = 0; i < hopper.getContainerSize(); i++) {
+                ItemStack destStack = hopper.getItem(i);
+                int slotLimit = Math.min(maxStack, hopper.getMaxStackSize());
+                if (destStack.getCount() >= slotLimit) continue;
+
+                if (destStack.isEmpty()) {
+                    int transfer = Math.min(toTransfer, slotLimit);
+                    ItemStack put = output.copy();
+                    put.setCount(transfer);
+                    output.shrink(transfer);
+                    toTransfer -= transfer;
+                    hopper.setItem(i, put);
+                    if (output.isEmpty()) furnace.setItem(2, ItemStack.EMPTY);
+                    hopper.setChanged();
+                    furnace.setChanged();
+                    if (toTransfer <= 0) return;
+                } else if (ItemStack.isSameItemSameTags(destStack, output)) {
+                    int space = slotLimit - destStack.getCount();
+                    int transfer = Math.min(toTransfer, space);
+                    destStack.grow(transfer);
+                    output.shrink(transfer);
+                    toTransfer -= transfer;
+                    if (output.isEmpty()) furnace.setItem(2, ItemStack.EMPTY);
+                    hopper.setChanged();
+                    furnace.setChanged();
+                    if (toTransfer <= 0) return;
+                }
+            }
+            return;
+        }
 
         if (dest instanceof WorldlyContainer wc) {
             for (int i : wc.getSlotsForFace(Direction.UP)) {
@@ -243,5 +270,78 @@ public class VanillaHopperIO {
             return RecipeType.BLASTING;
         }
         return RecipeType.SMELTING;
+    }
+
+    // ========================================================================
+    // HELPERS
+    // ========================================================================
+
+    /**
+     * Тянет smeltable предметы из контейнера в input печи (слот 0).
+     */
+    private static void pullSmeltableFromSource(AbstractFurnaceBlockEntity furnace, Container source, int maxToPull) {
+        if (source.isEmpty()) return;
+        ItemStack current = furnace.getItem(0);
+
+        for (int i = 0; i < source.getContainerSize(); i++) {
+            ItemStack src = source.getItem(i);
+            if (src.isEmpty()) continue;
+            if (!isSmeltable(furnace, src)) continue;
+
+            int canTake = Math.min(src.getCount(), maxToPull);
+            if (canTake <= 0) continue;
+
+            if (current.isEmpty()) {
+                ItemStack taken = source.removeItem(i, Math.min(canTake, src.getMaxStackSize()));
+                if (taken.isEmpty()) continue;
+                furnace.setItem(0, taken);
+                current = taken;
+            } else if (ItemStack.isSameItemSameTags(current, src)) {
+                int space = Math.min(furnace.getMaxStackSize(), current.getMaxStackSize()) - current.getCount();
+                if (space <= 0) break;
+                int toTake = Math.min(src.getCount(), Math.min(space, maxToPull));
+                ItemStack taken = source.removeItem(i, toTake);
+                if (taken.isEmpty()) continue;
+                current.grow(taken.getCount());
+                furnace.setItem(0, current);
+            } else {
+                continue;
+            }
+            source.setChanged();
+            furnace.setChanged();
+            return;
+        }
+    }
+
+    /**
+     * Тянет 1 единицу топлива из контейнера в слот топлива печи (слот 1).
+     * Возвращает true, если что-то взяли.
+     */
+    private static boolean pullFuelFromContainer(AbstractFurnaceBlockEntity furnace, Container source) {
+        if (source.isEmpty()) return false;
+        ItemStack current = furnace.getItem(1);
+        for (int i = 0; i < source.getContainerSize(); i++) {
+            ItemStack src = source.getItem(i);
+            if (src.isEmpty()) continue;
+            if (ForgeHooks.getBurnTime(src, RecipeType.SMELTING) <= 0) continue;
+
+            ItemStack extracted = source.removeItem(i, 1);
+            if (extracted.isEmpty()) continue;
+
+            if (current.isEmpty()) {
+                furnace.setItem(1, extracted);
+            } else if (ItemStack.isSameItemSameTags(current, extracted)
+                    && current.getCount() < current.getMaxStackSize()) {
+                current.grow(1);
+                furnace.setItem(1, current);
+            } else {
+                source.setItem(i, extracted);
+                continue;
+            }
+            source.setChanged();
+            furnace.setChanged();
+            return true;
+        }
+        return false;
     }
 }

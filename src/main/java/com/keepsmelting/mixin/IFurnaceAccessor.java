@@ -26,6 +26,9 @@ public interface IFurnaceAccessor {
     @Accessor("litDuration")
     int getLitDuration();
 
+    @Accessor("litDuration")
+    void setLitDuration(int litDuration);
+
     @Accessor("cookingProgress")
     int getCookingProgress();
 
@@ -34,6 +37,9 @@ public interface IFurnaceAccessor {
 
     @Accessor("cookingTotalTime")
     int getCookingTotalTime();
+
+    @Accessor("cookingTotalTime")
+    void setCookingTotalTime(int cookingTotalTime);
 
     @Invoker("isLit")
     boolean callIsLit();
