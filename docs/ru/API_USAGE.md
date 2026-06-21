@@ -119,4 +119,4 @@ public class MyRFHandler extends AbstractCatchupHandler {
 
 ---
 
-**Смотри также:** [Указатель](INDEX.md) | [Возможности](FEATURES.md) | [README](README.md)
+**Смотри также:** [Содержание](INDEX.md) | [Возможности](FEATURES.md) | [README](README.md)

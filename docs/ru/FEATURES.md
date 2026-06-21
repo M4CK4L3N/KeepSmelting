@@ -59,4 +59,4 @@ KeepSmelting поддерживает несколько языков:
 
 ---
 
-**Смотри также:** [Указатель](INDEX.md) | [API для разработчиков](API_USAGE.md) | [README](README.md)
+**Смотри также:** [Содержание](INDEX.md) | [API для разработчиков](API_USAGE.md) | [README](README.md)
