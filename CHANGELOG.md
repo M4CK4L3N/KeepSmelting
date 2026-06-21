@@ -15,4 +15,3 @@
 
 ### Fixes
 - No longer crashes without Iron Furnaces
-- JAR filename now includes version
