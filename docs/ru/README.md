@@ -49,61 +49,12 @@ debugMode = "OFF"
 timeMode = "REALTIME"
 ```
 
-## Производительность
+## Подробнее
 
-Все режимы догонялки используют **адаптивный батчинг** — O(событий) вместо O(тиков):
-- Ванильная печь: ~5-20 итераций на 24000 тиков
-- Iron Furnaces Furnace: ~5-20 итераций
-- Iron Furnaces Factory: ~100 итераций (было 144000 до оптимизации)
-- Iron Furnaces Generator: батч на цикл горения топлива
-
-## Поддерживаемые печи
-
-### Ванильные
-- Печь
-- Коптильня
-- Плавильная печь
-
-### Iron Furnaces (опциональная зависимость)
-Все 13 уровней печей + 3 режима
-
-## API для других модов
-
-Полное руководство: [docs/API_USAGE_ru.md](docs/API_USAGE_ru.md)
-
-Быстрый старт:
-
-```java
-// 1. Наследуйте AbstractCatchupHandler (saveTime/loadTime/calcElapsed уже готовы)
-public class MyHandler extends AbstractCatchupHandler {
-    @Override
-    public void applyCatchup(BlockEntity tile, long elapsed, Level level, BlockPos pos) {
-        // Ваша логика догонялки
-    }
-}
-
-// 2. Зарегистрируйте
-CatchupHandlerRegistry.register(MyTile.class, new MyHandler());
-```
-
-KeepSmelting найдёт ваш обработчик автоматически.
-
-## Локализация
-
-KeepSmelting поддерживает несколько языков:
-
-| Язык | Файл |
-|---|---|
-| 🇬🇧 Английский | [`en_us.json`](src/main/resources/assets/keepsmelting/lang/en_us.json) |
-| 🇷🇺 Русский | [`ru_ru.json`](src/main/resources/assets/keepsmelting/lang/ru_ru.json) |
-
-Язык игры определяется автоматически. Все команды, сообщения помощи и статус выводятся на выбранном языке.
-
-### Как добавить новый перевод
-
-1. Скопируйте [`en_us.json`](src/main/resources/assets/keepsmelting/lang/en_us.json) в `assets/keepsmelting/lang/<локаль>.json`
-2. Переведите значения (ключи оставьте без изменений)
-3. Отправьте pull request
+- [📖 Содержание](INDEX.md)
+- [✨ Производительность и список печей](FEATURES.md)
+- [🔧 API для разработчиков](API_USAGE.md)
+- [📋 Список изменений](CHANGELOG.md)
 
 ## Лицензия
 
@@ -111,4 +62,4 @@ MIT © M4CK4L3N
 
 ---
 
-[🇬🇧 English documentation](README.md)
+[🇬🇧 English](/README.md)

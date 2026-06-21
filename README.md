@@ -6,19 +6,6 @@
 
 Furnaces keep smelting even when you are offline. Uses real-world time to calculate how many items would have been cooked.
 
-## Features
-
-- ⏰ **Real-time & Game-time modes** — works across chunk unload, game exit, and menu pause
-- 🔥 **Vanilla furnaces** — furnace, smoker, blast furnace
-- ⚙️ **Iron Furnaces** — full support for all 3 modes (Furnace, Factory, Generator) with all augment slots:
-  - Red slot (3): recipe type — Smelting / Blasting / Smoking
-  - Green slot (4): efficiency — normal / Speed (2× speed) / Fuel (2× burn time)
-  - Blue slot (5): mode — Furnace / Factory / Generator
-- 📦 **Hopper I/O** — auto-pulls input/fuel from adjacent containers, pushes output below
-- 🛠️ **API for other mods** — add KeepSmelting support to your custom furnace
-- 🔧 **Configurable** — `/keepsmelting` commands
-- 🌍 **Multi-language** — English and Russian supported
-
 ## Installation
 
 1. Download the jar from [Modrinth](#) or [CurseForge](#)
@@ -49,63 +36,12 @@ debugMode = "OFF"
 timeMode = "REALTIME"
 ```
 
-## Performance
+## Learn More
 
-All catchup modes use **adaptive batch** — O(events) instead of O(ticks):
-- Vanilla furnace: ~5-20 iterations for 24000 ticks
-- Iron Furnaces Furnace: ~5-20 iterations
-- Iron Furnaces Factory: ~100 iterations (was 144000 before optimization)
-- Iron Furnaces Generator: batch per fuel burn cycle
-
-## Supported Furnaces
-
-### Vanilla
-- Furnace
-- Smoker
-- Blast Furnace
-
-### Iron Furnaces (optional dependency)
-All 13 furnace tiers + 3 modes
-
-## API for Other Mods
-
-See [docs/API_USAGE.md](docs/API_USAGE.md) for full integration guide.
-
-Quick example:
-
-```java
-// 1. Extend AbstractCatchupHandler (handles saveTime/loadTime/calcElapsed for you)
-public class MyHandler extends AbstractCatchupHandler {
-    @Override
-    public void applyCatchup(BlockEntity tile, long elapsed, Level level, BlockPos pos) {
-        // Your catchup logic
-    }
-}
-
-// 2. Register
-CatchupHandlerRegistry.register(MyTile.class, new MyHandler());
-```
-
-That's it. KeepSmelting will find your handler automatically.
-
-## Localization
-
-KeepSmelting supports multiple languages:
-
-| Language | File |
-|---|---|
-| 🇬🇧 English | [`en_us.json`](src/main/resources/assets/keepsmelting/lang/en_us.json) |
-| 🇷🇺 Russian | [`ru_ru.json`](src/main/resources/assets/keepsmelting/lang/ru_ru.json) |
-
-The game language is detected automatically. All commands, help messages and status output are translated.
-
-## Contributing Translations
-
-To add a new language:
-
-1. Copy [`en_us.json`](src/main/resources/assets/keepsmelting/lang/en_us.json) to `assets/keepsmelting/lang/<locale>.json`
-2. Translate the values (keep the keys unchanged)
-3. Submit a pull request
+- [📖 Documentation Index](docs/en/INDEX.md)
+- [✨ Features & Performance](docs/en/FEATURES.md)
+- [🔧 API for Mod Developers](docs/en/API_USAGE.md)
+- [📋 Changelog](CHANGELOG.md)
 
 ## License
 
@@ -113,5 +49,4 @@ MIT © M4CK4L3N
 
 ---
 
-[🇷🇺 Русская документация](README_ru.md)
-
+[🇷🇺 Русская документация](docs/ru/README.md)

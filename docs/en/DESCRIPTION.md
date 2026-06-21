@@ -38,3 +38,7 @@ Use `/keepsmelting status` to view current settings. Available options:
 ## License
 
 MIT
+
+---
+
+**See also:** [Documentation Index](INDEX.md) | [README](../../README.md)

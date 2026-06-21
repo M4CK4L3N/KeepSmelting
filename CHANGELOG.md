@@ -15,3 +15,7 @@
 
 ### Fixes
 - No longer crashes without Iron Furnaces
+
+---
+
+**See also:** [Documentation Index](docs/en/INDEX.md) | [README](README.md)

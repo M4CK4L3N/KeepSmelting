@@ -116,3 +116,7 @@ public class MyRFHandler extends AbstractCatchupHandler {
 ## Что НЕ является API
 
 Всё в пакете `com.keepsmelting.internal.*` — **внутреннее**. Может измениться в любой момент. Не используй напрямую.
+
+---
+
+**Смотри также:** [Указатель](INDEX.md) | [Возможности](FEATURES.md) | [README](README.md)

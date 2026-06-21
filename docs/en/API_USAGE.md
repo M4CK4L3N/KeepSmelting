@@ -131,3 +131,7 @@ public class ThermalFurnaceHandler extends AbstractCatchupHandler {
 ## What is NOT API
 
 Everything under `com.keepsmelting.internal.*` — **internal only**. May change without notice. Do not use directly.
+
+---
+
+**See also:** [Documentation Index](INDEX.md) | [Features & Performance](FEATURES.md) | [README](../../README.md)
