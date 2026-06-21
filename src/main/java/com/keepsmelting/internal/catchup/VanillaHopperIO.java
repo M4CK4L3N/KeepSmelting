@@ -4,6 +4,7 @@ import com.keepsmelting.mixin.IFurnaceAccessor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
+
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.WorldlyContainer;
@@ -85,6 +86,7 @@ public class VanillaHopperIO {
         }
     }
 
+    /** Push from furnace output to container below, then push from hopper to next container. */
     public static void pushToBelow(AbstractFurnaceBlockEntity furnace, ServerLevel level, BlockPos pos, int maxItems) {
         BlockPos below = pos.below();
         if (!level.isLoaded(below)) return;
@@ -98,7 +100,7 @@ public class VanillaHopperIO {
         int toTransfer = Math.min(output.getCount(), maxItems);
         if (toTransfer <= 0) return;
 
-        // Если под печью воронка — кладём в неё
+        // Если под печью воронка — кладём в неё, затем из воронки в контейнер под ней
         if (be instanceof HopperBlockEntity hopper) {
             for (int i = 0; i < hopper.getContainerSize(); i++) {
                 ItemStack destStack = hopper.getItem(i);
@@ -115,7 +117,7 @@ public class VanillaHopperIO {
                     if (output.isEmpty()) furnace.setItem(2, ItemStack.EMPTY);
                     hopper.setChanged();
                     furnace.setChanged();
-                    if (toTransfer <= 0) return;
+                    if (toTransfer <= 0) break;
                 } else if (ItemStack.isSameItemSameTags(destStack, output)) {
                     int space = slotLimit - destStack.getCount();
                     int transfer = Math.min(toTransfer, space);
@@ -125,9 +127,11 @@ public class VanillaHopperIO {
                     if (output.isEmpty()) furnace.setItem(2, ItemStack.EMPTY);
                     hopper.setChanged();
                     furnace.setChanged();
-                    if (toTransfer <= 0) return;
+                    if (toTransfer <= 0) break;
                 }
             }
+            // Push from hopper to container below (if FACING=DOWN)
+            pushHopperDown(hopper, level, below);
             return;
         }
 
@@ -317,6 +321,45 @@ public class VanillaHopperIO {
      * Тянет 1 единицу топлива из контейнера в слот топлива печи (слот 1).
      * Возвращает true, если что-то взяли.
      */
+    /** Выталкивает предметы из воронки в контейнер под ней (если воронка смотрит вниз). */
+    public static void pushHopperDown(HopperBlockEntity hopper, ServerLevel level, BlockPos pos) {
+        net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+        if (!state.hasProperty(net.minecraft.world.level.block.HopperBlock.FACING)) return;
+        Direction facing = state.getValue(net.minecraft.world.level.block.HopperBlock.FACING);
+        if (facing != Direction.DOWN) return;
+        BlockPos below = pos.below();
+        if (!level.isLoaded(below)) return;
+        BlockEntity be = level.getBlockEntity(below);
+        if (!(be instanceof Container dest)) return;
+
+        for (int i = 0; i < hopper.getContainerSize(); i++) {
+            ItemStack stack = hopper.getItem(i);
+            if (stack.isEmpty()) continue;
+            int maxStack = stack.getMaxStackSize();
+            for (int j = 0; j < dest.getContainerSize(); j++) {
+                if (stack.isEmpty()) break;
+                ItemStack destStack = dest.getItem(j);
+                int slotLimit = Math.min(maxStack, dest.getMaxStackSize());
+                if (destStack.isEmpty()) {
+                    int transfer = Math.min(stack.getCount(), slotLimit);
+                    dest.setItem(j, new ItemStack(stack.getItem(), transfer));
+                    stack.shrink(transfer);
+                    if (stack.isEmpty()) hopper.setItem(i, ItemStack.EMPTY);
+                    dest.setChanged();
+                    hopper.setChanged();
+                } else if (ItemStack.isSameItemSameTags(destStack, stack) && destStack.getCount() < slotLimit) {
+                    int space = slotLimit - destStack.getCount();
+                    int transfer = Math.min(space, stack.getCount());
+                    destStack.grow(transfer);
+                    stack.shrink(transfer);
+                    if (stack.isEmpty()) hopper.setItem(i, ItemStack.EMPTY);
+                    dest.setChanged();
+                    hopper.setChanged();
+                }
+            }
+        }
+    }
+
     private static boolean pullFuelFromContainer(AbstractFurnaceBlockEntity furnace, Container source) {
         if (source.isEmpty()) return false;
         ItemStack current = furnace.getItem(1);
