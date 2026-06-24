@@ -1,2 +1,0 @@
-Summary for libs/ironfurnaces-1.20.1-4.1.8.jar
-Decompiled with CFR 0.152

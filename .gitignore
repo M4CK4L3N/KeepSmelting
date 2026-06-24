@@ -23,6 +23,7 @@ run
 
 # decompiled jars
 decompiled/
+libs/cfr-out/
 
 # Files from Forge MDK
 forge*changelog.txt
