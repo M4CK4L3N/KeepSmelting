@@ -24,15 +24,6 @@ public abstract class FurnaceTickMixin {
     @Unique
     private String keepsmelting$activeTimeMode;
 
-    /**
-     * Флаг для предотвращения двойной обработки.
-     * Iron Furnaces Tile наследует AbstractFurnaceBlockEntity,
-     * поэтому ванильная mixin может сработать повторно на той же печи.
-     * Устанавливается перед catchup, сбрасывается после.
-     */
-    @Unique
-    private boolean keepsmelting$catchupProcessed;
-
     @Inject(method = "saveAdditional", at = @At("TAIL"))
     private void onSave(CompoundTag tag, CallbackInfo ci) {
         tag.putLong("keepsmelting_lastRealTime", this.keepsmelting$lastRealTime);
@@ -52,19 +43,9 @@ public abstract class FurnaceTickMixin {
                                AbstractFurnaceBlockEntity furnace, CallbackInfo ci) {
         if (world.isClientSide) return;
 
-        // Очищаем кэш дедупликации debug-сообщений каждый тик
-        com.keepsmelting.api.catchup.AbstractCatchupHandler.clearDebugDedup();
-
         if (!KeepSmeltingConfig.COMMON.catchupEnabled.get()) return;
 
         FurnaceTickMixin self = (FurnaceTickMixin) (Object) furnace;
-
-        // Предотвращаем двойную обработку: если Iron Furnaces mixin
-        // уже обработала эту печь в этом тике, пропускаем
-        if (self.keepsmelting$catchupProcessed) {
-            self.keepsmelting$catchupProcessed = false;
-            return;
-        }
 
         // Check time mode change
         String currentMode = KeepSmeltingConfig.COMMON.timeMode.get().name();
@@ -85,10 +66,6 @@ public abstract class FurnaceTickMixin {
         if (elapsed < KeepSmeltingConfig.COMMON.minDeltaThreshold.get()) return;
         elapsed = Math.min(elapsed, KeepSmeltingConfig.COMMON.maxCatchupTicks.get());
         if (elapsed <= 0) return;
-
-        // Устанавливаем флаг — если Iron Furnaces mixin вызовется
-        // на этом же тике, она увидит флаг и пропустит обработку
-        self.keepsmelting$catchupProcessed = true;
 
         // Delegate to handler
         IFurnaceCatchupHandler handler = CatchupHandlerRegistry.find(furnace.getClass());

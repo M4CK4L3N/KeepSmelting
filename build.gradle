@@ -69,11 +69,11 @@ configurations {
 obfuscation {
     createRemappingConfiguration(configurations.localRuntime)
 }
-
 dependencies {
-    // compileOnly — Iron Furnaces jar for mixin compilation. Optional at runtime (defaultRequire: 0).
+    // Iron Furnaces jar for mixin compilation. Optional at runtime (defaultRequire: 0).
     // Для тестирования установи ironfurnaces-1.20.1-4.1.8.jar вручную в папку mods твоего лаунчера
-    compileOnly files('libs/ironfurnaces-1.20.1-4.1.8.jar')
+    compileOnly "curse.maven:iron-furnaces-237664:7888952"
+
 
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
@@ -114,6 +114,15 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 }
 sourceSets.main.resources.srcDir generateModMetadata
 legacyForge.ideSyncTask generateModMetadata
+
+repositories {
+    maven {
+        url "https://cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
+}
 
 publishing {
     publications {

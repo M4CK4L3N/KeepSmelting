@@ -1,6 +1,6 @@
 package com.keepsmelting.internal.ironfurnaces.handler;
 
-import com.keepsmelting.api.catchup.AbstractCatchupHandler;
+import com.keepsmelting.api.IFurnaceCatchupHandler;
 import com.keepsmelting.internal.ironfurnaces.CatchupSimulation;
 import com.keepsmelting.internal.ironfurnaces.collect.FurnaceNetwork;
 import com.keepsmelting.internal.ironfurnaces.data.SimulationData.FactorySmeltParams;
@@ -11,7 +11,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
-public class IronFurnaceCatchupHandler extends AbstractCatchupHandler {
+/**
+ * Catchup handler for Iron Furnaces mod (3 modes: furnace, factory, generator).
+ * Does NOT extend AbstractCatchupHandler — time tracking is handled by
+ * IronFurnaceTickMixin's per-tile mixin variables (keepsmelting$lastRealTime).
+ */
+public class IronFurnaceCatchupHandler implements IFurnaceCatchupHandler {
 
     public static final IronFurnaceCatchupHandler INSTANCE = new IronFurnaceCatchupHandler();
 
@@ -25,6 +30,20 @@ public class IronFurnaceCatchupHandler extends AbstractCatchupHandler {
         } else if (ift.isGenerator()) {
             applyGenerator(ift, elapsed, level, pos);
         }
+    }
+
+    /**
+     * saveTime/loadTime are intentionally no-op.
+     * Time is persisted by IronFurnaceTickMixin via per-tile mixin variables.
+     */
+    @Override
+    public void saveTime(BlockEntity tile, net.minecraft.nbt.CompoundTag tag) {
+        // handled by IronFurnaceTickMixin.onSave()
+    }
+
+    @Override
+    public void loadTime(BlockEntity tile, net.minecraft.nbt.CompoundTag tag) {
+        // handled by IronFurnaceTickMixin.onLoad()
     }
 
     private void applyGenerator(BlockIronFurnaceTileBase genTile,

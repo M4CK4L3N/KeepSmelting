@@ -1,0 +1,44 @@
+/*
+ * Decompiled with CFR.
+ */
+package ironfurnaces.tileentity.furnaces;
+
+import ironfurnaces.Config;
+import ironfurnaces.container.furnaces.BlockGoldFurnaceContainer;
+import ironfurnaces.init.Registration;
+import ironfurnaces.tileentity.furnaces.BlockIronFurnaceTileBase;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.common.ForgeConfigSpec;
+
+public class BlockGoldFurnaceTile
+extends BlockIronFurnaceTileBase {
+    public BlockGoldFurnaceTile(BlockPos pos, BlockState state) {
+        super((BlockEntityType)Registration.GOLD_FURNACE_TILE.get(), pos, state);
+    }
+
+    @Override
+    public ForgeConfigSpec.IntValue getCookTimeConfig() {
+        return Config.goldFurnaceSpeed;
+    }
+
+    @Override
+    public String IgetName() {
+        return "container.ironfurnaces.gold_furnace";
+    }
+
+    @Override
+    public AbstractContainerMenu IcreateMenu(int i, Inventory playerInventory, Player playerEntity) {
+        return new BlockGoldFurnaceContainer(i, this.f_58857_, this.f_58858_, playerInventory, playerEntity);
+    }
+
+    @Override
+    public int getTier() {
+        return (Integer)Config.goldFurnaceTier.get();
+    }
+}
+

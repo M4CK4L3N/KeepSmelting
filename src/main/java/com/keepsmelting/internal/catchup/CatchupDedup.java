@@ -1,4 +1,4 @@
-package com.keepsmelting.internal.ironfurnaces.util;
+package com.keepsmelting.internal.catchup;
 
 import net.minecraft.core.BlockPos;
 import java.util.HashSet;
